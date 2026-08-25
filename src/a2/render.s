@@ -36,6 +36,8 @@ FullRedraw        db    0
 DrawPage          db    0                       ; page being drawn (back page)
 RoomBytes         ds    7*40                    ; template: one byte per PF pixel per row
 RoomOpen          ds    7*40                    ; $7f where the row is open, $00 where a wall is
+RoomLit           ds    7*40                    ; what a solid sprite shows through it
+LitClass          db    $ff                     ; colour class RoomLit was built for
 WallClass         db    0
 * per-line pointer to the template row, and per-class colour masks
 * indexed by screen byte column (parity + hi bit) - both built at init
@@ -58,6 +60,7 @@ RMaskO            equ   $3c                     ; color mask, odd byte
 RHi               equ   $3d                     ; hi bit
 RPageHi           equ   $3e                     ; $00 or $20 added to HgrHi
 RXEnd             equ   $45                     ; one past the last screen byte
+RClass            equ   $46                     ; colour class of the sprite in hand
 RXOrg             equ   $4e                     ; the sprite's true left byte
 BallCut           equ   $4f                     ; ball masks a hole instead of drawing
 RPrio             equ   $3f                     ; nonzero: walls over sprites
@@ -901,6 +904,92 @@ Overlap           lda   T0
                   rts
 
 *-------------------------------------------------------------
+* Everywhere a solid sprite lands in a room whose playfield is in front of
+* it, what shows is the room's own lit pattern - the colour mask where the
+* room is open, nothing where a wall is - and that depends only on the
+* position on screen, not on the sprite.  Work it out once per room and
+* the blit becomes a copy.
+BuildLit          lda   RClass
+                  cmp   LitClass
+                  beq   :done
+                  sta   LitClass
+                  tay
+                  lda   MaskTabL,y
+                  sta   :m+1
+                  lda   MaskTabH,y
+                  sta   :m+2
+                  lda   #<RoomOpen
+                  sta   RTmpl
+                  lda   #>RoomOpen
+                  sta   RTmpl+1
+                  lda   #<RoomLit
+                  sta   RShp
+                  lda   #>RoomLit
+                  sta   RShp+1
+                  lda   #0
+                  sta   RCnt                    ; row
+:row              ldy   #0
+:col              lda   (RTmpl),y
+                  beq   :dark
+                  tya
+                  tax
+:m                lda   MaskTab,x
+                  sta   (RShp),y
+                  jmp   :next
+:dark             lda   #0
+                  sta   (RShp),y
+:next             iny
+                  cpy   #40
+                  bne   :col
+                  lda   RTmpl
+                  clc
+                  adc   #40
+                  sta   RTmpl
+                  bcc   :n1
+                  inc   RTmpl+1
+:n1               lda   RShp
+                  clc
+                  adc   #40
+                  sta   RShp
+                  bcc   :n2
+                  inc   RShp+1
+:n2               inc   RCnt
+                  lda   RCnt
+                  cmp   #7
+                  bne   :row
+:done             rts
+
+* Copy one lit row into scan lines RLine and RLine+1 at RX..RXEnd
+BlitRow4          ldy   RLine
+                  lda   TmplLo,y
+                  clc
+                  adc   #<RoomLit-RoomBytes
+                  sta   BR4lit+1
+                  lda   TmplHi,y
+                  adc   #>RoomLit-RoomBytes
+                  sta   BR4lit+2
+                  lda   HgrLo,y
+                  sta   BR4a+1
+                  sta   BR4b+1
+                  lda   HgrHi,y
+                  clc
+                  adc   RPageHi
+                  sta   BR4a+2
+                  clc
+                  adc   #4                      ; line+1 is one $400 lower
+                  sta   BR4b+2
+                  ldx   RX
+BR4byte           
+BR4lit            lda   RoomLit,x
+                  beq   BR4next
+BR4a              sta   $2000,x
+BR4b              sta   $2000,x
+BR4next           inx
+                  cpx   RXEnd
+                  bne   BR4byte
+                  rts
+
+*-------------------------------------------------------------
 * Narrow the blit to the part of the item that was undone this frame.
 * Carry set means nothing of it needs repainting.
 ClipToDamage      jsr   BuildDamageFor
@@ -1183,7 +1272,9 @@ TemplateRow       sta   T5
 
 * RoomBytes[row][col] = wall byte (color pattern) or 0, plus thin walls
 RShp              equ   $43                     ; RoomOpen row pointer
-BuildTemplate     ldx   WallClass
+BuildTemplate     lda   #$ff                    ; the lit rows go with the room
+                  sta   LitClass
+                  ldx   WallClass
                   lda   ClassMaskE,x
                   ora   ClassHi,x
                   sta   RMaskE
@@ -1327,6 +1418,7 @@ DrawSprite        sta   T3
                   sta   RMaskO
                   lda   ClassHi,y
                   sta   RHi
+                  sty   RClass
                   lda   MaskTabL,y
                   sta   BR2mask+1
                   sta   BR3mask+1
@@ -1394,8 +1486,9 @@ DrawSprite        sta   T3
                   bcc   :nc2
                   inc   RQ+1
 :nc2              dec   RRows
-                  beq   :below
-                  dec   T4
+                  bne   :sk2
+                  jmp   :below
+:sk2              dec   T4
                   bne   :sk
                   lda   #0
                   sta   RLine
@@ -1424,8 +1517,14 @@ DrawSprite        sta   T3
 :xok              sta   RXEnd
                   jsr   SetSlotRect
                   lda   MeasureOnly
-                  beq   :solid
+                  beq   :lit
                   rts
+:lit              lda   RPrio                   ; solid sprites read the lit rows
+                  beq   :solid
+                  ldx   CurSlot
+                  lda   SolidSlot,x
+                  beq   :solid
+                  jsr   BuildLit
 :solid            ldx   CurSlot
                   lda   DrawMode
                   bne   :dmg
@@ -1442,7 +1541,12 @@ DrawSprite        sta   T3
                   bne   :prio
                   jsr   BlitRow2                ; both lines in one pass
                   jmp   :adv
-:prio             jsr   BlitRow3                ; ... with walls in front
+:prio             ldx   CurSlot
+                  lda   SolidSlot,x
+                  beq   :prio2
+                  jsr   BlitRow4                ; solid: copy the lit rows
+                  jmp   :adv
+:prio2            jsr   BlitRow3                ; ... with walls in front
 :adv              inc   RLine
                   inc   RLine
                   lda   RQ

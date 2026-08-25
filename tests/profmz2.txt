@@ -1,0 +1,17 @@
+wait 420
+key r
+wait 60
+00/008a:0a 12 46
+00/00e2:0a 12 46
+00/00bf:0a 20 50
+00/00b6:0a 60 50
+speed 1
+wait 60
+hold up
+wait 20
+mem 00/002d 2
+watch 00/002c 1
+wait 6
+watch off
+release
+echo done
