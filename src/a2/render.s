@@ -24,6 +24,7 @@ CurSlot           db    0
 FullRedraw        db    0
 DrawPage          db    0                       ; page being drawn (back page)
 RoomBytes         ds    7*40                    ; template: one byte per PF pixel per row
+RoomShape         ds    7*40                    ; the same rows as bare shape ($7f where wall)
 WallClass         db    0
 * per-line pointer to the template row, and per-class colour masks
 * indexed by screen byte column (parity + hi bit) - both built at init
@@ -429,6 +430,7 @@ TemplateRow       sta   T5
                   rts
 
 * RoomBytes[row][col] = wall byte (color pattern) or 0, plus thin walls
+RShp              equ   $43                     ; shape template pointer
 BuildTemplate     ldx   WallClass
                   lda   ClassMaskE,x
                   ora   ClassHi,x
@@ -440,6 +442,10 @@ BuildTemplate     ldx   WallClass
                   sta   RTmpl
                   lda   #>RoomBytes
                   sta   RTmpl+1
+                  lda   #<RoomShape
+                  sta   RShp
+                  lda   #>RoomShape
+                  sta   RShp+1
                   lda   #0
                   sta   RCnt                    ; row
 :row              ldy   #0
@@ -451,6 +457,8 @@ BuildTemplate     ldx   WallClass
                   beq   :empty
                   pla
                   tay
+                  lda   #$7f                    ; wall shape, colour aside
+                  sta   (RShp),y
                   tya
                   and   #1
                   bne   :odd
@@ -461,6 +469,7 @@ BuildTemplate     ldx   WallClass
 :empty            pla
                   tay
                   lda   #0
+                  sta   (RShp),y
 :store            sta   (RTmpl),y
                   iny
                   cpy   #40
@@ -474,6 +483,10 @@ BuildTemplate     ldx   WallClass
                   and   #$86                    ; px window + hi bit
                   ora   (RTmpl),y
                   sta   (RTmpl),y
+                  ldy   #3
+                  lda   #$06
+                  ora   (RShp),y
+                  sta   (RShp),y
 :nol              lda   RoomCtrl
                   and   #$40
                   beq   :nor
@@ -482,13 +495,23 @@ BuildTemplate     ldx   WallClass
                   and   #$98
                   ora   (RTmpl),y
                   sta   (RTmpl),y
+                  ldy   #37
+                  lda   #$18
+                  ora   (RShp),y
+                  sta   (RShp),y
 :nor              lda   RTmpl
                   clc
                   adc   #40
                   sta   RTmpl
                   bcc   :nc
                   inc   RTmpl+1
-:nc               inc   RCnt
+:nc               lda   RShp
+                  clc
+                  adc   #40
+                  sta   RShp
+                  bcc   :nc2
+                  inc   RShp+1
+:nc2              inc   RCnt
                   lda   RCnt
                   cmp   #7
                   bne   :row
@@ -716,6 +739,13 @@ BlitRow           lda   RLine
                   lda   RLine
                   jsr   RowOfLine
                   jsr   TemplateRow
+                  lda   RTmpl                   ; priority masking uses the shape rows
+                  clc
+                  adc   #<RoomShape-RoomBytes
+                  sta   RTmpl
+                  lda   RTmpl+1
+                  adc   #>RoomShape-RoomBytes
+                  sta   RTmpl+1
                   ldy   #0
                   sty   RDx
 :byte             lda   RX
@@ -742,10 +772,11 @@ BlitRow           lda   RLine
                   tay
                   lda   RPrio
                   beq   :noprio
-                  lda   (RTmpl),y
+                  lda   (RTmpl),y               ; RTmpl points at RoomShape here
                   and   #$7f
                   eor   #$7f
                   and   T5
+                  ora   RHi                     ; keep the hi-bit colour half
                   sta   T5                      ; walls punch through
 :noprio           lda   (RP),y
                   ora   T5
