@@ -1,0 +1,20 @@
+wait 420
+key r
+wait 60
+00/008a:0a 12 46
+00/00e2:0a 12 46
+wait 30
+shot sh0.png
+hold up
+wait 30
+release
+wait 10
+shot sh1.png
+hold right
+wait 20
+release
+wait 10
+shot sh2.png
+mem 00/008a 4
+mem 00/00d9 4
+echo done

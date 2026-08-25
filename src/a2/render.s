@@ -23,7 +23,10 @@ OldRect           ds    3*4                     ; what this page had before
 UnionRect         ds    3*4                     ; old and new together
 SolidSlot         ds    3                       ; item may be drawn edge-only
 DamagedOnly       ds    3                       ; only redrawn because a neighbour was
-DamageRect        ds    4                       ; everything undone this frame
+NeedDamage        ds    3                       ; ...as well as its own edges
+DrawMode          db    0                       ; 1 = this pass is the damage patch
+ErasedRect        ds    3*4                     ; what each item's erase restored
+DamageRect        ds    4                       ; ...of the others, for one item
 MeasureOnly       db    0
 ItemSpr           db    0
 ChgFlags          ds    3
@@ -56,8 +59,7 @@ RHi               equ   $3d                     ; hi bit
 RPageHi           equ   $3e                     ; $00 or $20 added to HgrHi
 RXEnd             equ   $45                     ; one past the last screen byte
 RXOrg             equ   $4e                     ; the sprite's true left byte
-RA                equ   $46                     ; rectangle scratch: x, w, top, h
-RB                equ   $4a
+BallCut           equ   $4f                     ; ball masks a hole instead of drawing
 RPrio             equ   $3f                     ; nonzero: walls over sprites
 RCnt              equ   $40
 RBpr              equ   $41
@@ -254,6 +256,9 @@ SpreadChanges     lda   #0
                   sta   DamagedOnly
                   sta   DamagedOnly+1
                   sta   DamagedOnly+2
+                  sta   NeedDamage
+                  sta   NeedDamage+1
+                  sta   NeedDamage+2
                   lda   ChgFlags                ; nothing to spread if every
                   and   ChgFlags+1              ; item is being redrawn and
                   and   ChgFlags+2              ; none of them is solid
@@ -275,7 +280,7 @@ SpreadChanges     lda   #0
                   ldx   T3
                   dex
                   bne   :pass
-                  jmp   BuildDamage
+                  rts
 
 PairTabA          db    0,0,1
 PairTabB          db    1,2,2
@@ -294,101 +299,146 @@ PairCheck         lda   PairTabA,y
                   asl
                   asl
                   tax
-                  ldy   #0
-:cpa              lda   UnionRect,x
-                  sta   RA,y
-                  inx
-                  iny
-                  cpy   #4
-                  bne   :cpa
                   lda   T1
                   asl
                   asl
-                  tax
-                  ldy   #0
-:cpb              lda   UnionRect,x
-                  sta   RB,y
-                  inx
-                  iny
-                  cpy   #4
-                  bne   :cpb
+                  tay
                   jsr   RectOverlap
                   bcs   :hit
                   rts
 :hit              ldx   T0
                   jsr   MarkDamaged
                   ldx   T1
-MarkDamaged       lda   ChgFlags,x
+MarkDamaged       lda   SolidSlot,x
+                  beq   :plain
+                  lda   #1                      ; solid: its edges as usual, plus
+                  sta   NeedDamage,x            ; a second pass over the damage
+                  sta   ChgFlags,x
+                  rts
+:plain            lda   ChgFlags,x
                   bne   :was
                   lda   #1                      ; only collateral: its pixels are
                   sta   DamagedOnly,x           ; still right outside the damage
 :was              lda   #1
                   sta   ChgFlags,x
-                  lda   #0
-                  sta   SolidSlot,x
                   rts
 
-* The union of the rectangles that EraseChanged will restore.  An item
-* that is only being redrawn because of them needs nothing more than that
-* area repainted.
-BuildDamage       lda   #0
+* Accumulate what has actually been restored, so an item caught by it can
+* be repainted over just that much.  Taking the whole old rectangle of an
+* item that is only having its edges cleared would count far too much.
+MergeDamage       lda   CurSlot
+                  asl
+                  asl
+                  tax
+                  lda   ErasedRect+3,x
+                  bne   :grow
+                  lda   RX
+                  sta   ErasedRect,x
+                  lda   RW
+                  sta   ErasedRect+1,x
+                  lda   RLine
+                  sta   ErasedRect+2,x
+                  lda   RRows
+                  sta   ErasedRect+3,x
+                  rts
+:grow             lda   ErasedRect,x            ; right edge
+                  clc
+                  adc   ErasedRect+1,x
+                  sta   T5
+                  lda   RX
+                  cmp   ErasedRect,x
+                  bcs   :l
+                  sta   ErasedRect,x
+:l                lda   RX
+                  clc
+                  adc   RW
+                  cmp   T5
+                  bcs   :r
+                  lda   T5
+:r                sec
+                  sbc   ErasedRect,x
+                  sta   ErasedRect+1,x
+                  lda   ErasedRect+2,x          ; bottom edge
+                  clc
+                  adc   ErasedRect+3,x
+                  sta   T5
+                  lda   RLine
+                  cmp   ErasedRect+2,x
+                  bcs   :t
+                  sta   ErasedRect+2,x
+:t                lda   RLine
+                  clc
+                  adc   RRows
+                  cmp   T5
+                  bcs   :b
+                  lda   T5
+:b                sec
+                  sbc   ErasedRect+2,x
+                  sta   ErasedRect+3,x
+                  rts
+
+* DamageRect = what the OTHER items restored over this one.  An item's own
+* erase is not damage to itself, and lumping the two together would box up
+* the whole sprite whenever the ball sat inside it.
+BuildDamageFor    lda   #0
                   sta   DamageRect+3
-                  sta   CurSlot
-:item             ldy   CurSlot
-                  lda   ChgFlags,y
+                  lda   #0
+                  sta   RCnt
+:item             lda   RCnt
+                  cmp   CurSlot
                   beq   :next
-                  lda   DamagedOnly,y
-                  bne   :next
-                  jsr   SlotRectIdx
-                  lda   SlotRect+3,x
+                  asl
+                  asl
+                  tax
+                  lda   ErasedRect+3,x
                   beq   :next
                   ldy   DamageRect+3
                   bne   :grow
-                  lda   SlotRect,x              ; first one: take it whole
+                  lda   ErasedRect,x
                   sta   DamageRect
-                  lda   SlotRect+1,x
+                  lda   ErasedRect+1,x
                   sta   DamageRect+1
-                  lda   SlotRect+2,x
+                  lda   ErasedRect+2,x
                   sta   DamageRect+2
-                  lda   SlotRect+3,x
+                  lda   ErasedRect+3,x
                   sta   DamageRect+3
                   jmp   :next
-:grow             lda   DamageRect              ; left edge
+:grow             lda   DamageRect
                   clc
                   adc   DamageRect+1
-                  sta   T4                      ; old right
-                  lda   SlotRect,x
+                  sta   T5
+                  lda   ErasedRect,x
                   cmp   DamageRect
-                  bcs   :lx
+                  bcs   :l
                   sta   DamageRect
-:lx               lda   SlotRect,x              ; right edge
+:l                lda   ErasedRect,x
                   clc
-                  adc   SlotRect+1,x
-                  cmp   T4
-                  bcs   :rx
-                  lda   T4
-:rx               sec
+                  adc   ErasedRect+1,x
+                  cmp   T5
+                  bcs   :r
+                  lda   T5
+:r                sec
                   sbc   DamageRect
                   sta   DamageRect+1
-                  lda   DamageRect+2            ; top edge
+                  lda   DamageRect+2
                   clc
                   adc   DamageRect+3
-                  sta   T4                      ; old bottom
-                  lda   SlotRect+2,x
+                  sta   T5
+                  lda   ErasedRect+2,x
                   cmp   DamageRect+2
-                  bcs   :ty
+                  bcs   :t
                   sta   DamageRect+2
-:ty               lda   SlotRect+2,x            ; bottom edge
+:t                lda   ErasedRect+2,x
                   clc
-                  adc   SlotRect+3,x
-                  cmp   T4
-                  bcs   :by
-                  lda   T4
-:by               sec
+                  adc   ErasedRect+3,x
+                  cmp   T5
+                  bcs   :b
+                  lda   T5
+:b                sec
                   sbc   DamageRect+2
                   sta   DamageRect+3
-:next             inc   CurSlot
-                  lda   CurSlot
+:next             inc   RCnt
+                  lda   RCnt
                   cmp   #3
                   beq   :done
                   jmp   :item
@@ -468,35 +518,35 @@ BuildUnions       lda   #0
                   jmp   :item
 :done             rts
 
-* rectangles RA and RB (x, w, top, h) -> carry set if they overlap
-RectOverlap       lda   RA+3
+* UnionRect[x] against UnionRect[y] -> carry set if they overlap
+RectOverlap       lda   UnionRect+3,x
                   beq   :no
-                  lda   RB+3
+                  lda   UnionRect+3,y
                   beq   :no
-                  lda   RA
+                  lda   UnionRect,x
                   sec
-                  sbc   RB
+                  sbc   UnionRect,y
                   bcs   :ax
-                  lda   RB                      ; RA is to the left
+                  lda   UnionRect,y             ; x starts to the left
                   sec
-                  sbc   RA
-                  cmp   RA+1
+                  sbc   UnionRect,x
+                  cmp   UnionRect+1,x
                   bcs   :no
-                  jmp   :y
-:ax               cmp   RB+1
+                  jmp   :yy
+:ax               cmp   UnionRect+1,y
                   bcs   :no
-:y                lda   RA+2
+:yy               lda   UnionRect+2,x
                   sec
-                  sbc   RB+2
+                  sbc   UnionRect+2,y
                   bcs   :ay
-                  lda   RB+2                    ; RA is above
+                  lda   UnionRect+2,y           ; x starts above
                   sec
-                  sbc   RA+2
-                  cmp   RA+3
+                  sbc   UnionRect+2,x
+                  cmp   UnionRect+3,x
                   bcs   :no
                   sec
                   rts
-:ay               cmp   RB+3
+:ay               cmp   UnionRect+3,y
                   bcs   :no
                   sec
                   rts
@@ -510,7 +560,17 @@ DrawItems         lda   #0
                   lda   ChgFlags,x
                   beq   :next
                   jsr   ClearSlotRect
+                  lda   #0
+                  sta   DrawMode
                   jsr   DrawItem
+                  ldx   CurSlot
+                  lda   NeedDamage,x
+                  beq   :next
+                  lda   #1                      ; and again over what was undone
+                  sta   DrawMode
+                  jsr   DrawItem
+                  lda   #0
+                  sta   DrawMode
 :next             inc   CurSlot
                   lda   CurSlot
                   cmp   #3
@@ -683,7 +743,11 @@ SetSlotRect       lda   RX
 
 * restore what the changed items covered on this page.  After a full
 * room redraw there is nothing to undo.
-EraseChanged      lda   FullRedraw
+EraseChanged      lda   #0
+                  sta   ErasedRect+3            ; nothing undone yet
+                  sta   ErasedRect+7
+                  sta   ErasedRect+11
+                  lda   FullRedraw
                   bne   :done
                   lda   #0
                   sta   CurSlot
@@ -720,18 +784,19 @@ EraseOld          jsr   SlotRectIdx
                   ldy   CurSlot                 ; edge-only erase is for solid
                   lda   SolidSlot,y             ; items that have only shifted
                   bne   :meas
-                  jmp   EraseRect
+                  jmp   :whole
 :meas             lda   CurSlot
                   asl
                   asl
                   tay
                   lda   NewRect+3,y
                   bne   :meas2
+:whole            jsr   MergeDamage
                   jmp   EraseRect
 :meas2            lda   NewRect+1,y
                   cmp   RW
                   beq   :samew
-                  jmp   EraseRect
+                  jmp   :whole
 :samew            lda   NewRect,y
                   cmp   RX
                   beq   :vert
@@ -739,11 +804,11 @@ EraseOld          jsr   SlotRectIdx
                   lda   NewRect+2,y
                   cmp   RLine
                   beq   :h1
-                  jmp   EraseRect
+                  jmp   :whole
 :h1               lda   NewRect+3,y
                   cmp   RRows
                   beq   :h2
-                  jmp   EraseRect
+                  jmp   :whole
 :h2               lda   NewRect,y
                   sta   T0                      ; new left
                   clc
@@ -756,7 +821,7 @@ EraseOld          jsr   SlotRectIdx
                   sta   T4                      ; old right
                   jsr   Overlap
                   bcs   :h3
-                  jmp   EraseRect               ; disjoint: clear the lot
+                  jmp   :whole                  ; disjoint: clear the lot
 :h3               lda   T0                      ; strip on the left
                   sec
                   sbc   T2
@@ -789,7 +854,7 @@ EraseOld          jsr   SlotRectIdx
                   sta   T4                      ; old bottom
                   jsr   Overlap
                   bcs   :v1
-                  jmp   EraseRect
+                  jmp   :whole
 :v1               lda   T0                      ; strip above
                   sec
                   sbc   T2
@@ -811,7 +876,8 @@ EraseOld          jsr   SlotRectIdx
 :vdone            rts
 
 * EraseRect eats RLine/RRows, so keep them for the second strip
-EraseKeep         lda   RLine
+EraseKeep         jsr   MergeDamage
+                  lda   RLine
                   pha
                   lda   RRows
                   pha
@@ -837,7 +903,8 @@ Overlap           lda   T0
 *-------------------------------------------------------------
 * Narrow the blit to the part of the item that was undone this frame.
 * Carry set means nothing of it needs repainting.
-ClipToDamage      lda   DamageRect+3
+ClipToDamage      jsr   BuildDamageFor
+                  lda   DamageRect+3
                   bne   :any
                   sec
                   rts
@@ -1360,9 +1427,11 @@ DrawSprite        sta   T3
                   beq   :solid
                   rts
 :solid            ldx   CurSlot
+                  lda   DrawMode
+                  bne   :dmg
                   lda   DamagedOnly,x
                   beq   :notdmg
-                  jsr   ClipToDamage            ; repaint just what was undone
+:dmg              jsr   ClipToDamage            ; repaint just what was undone
                   bcs   :below
                   jmp   :row
 :notdmg           lda   SolidSlot,x
@@ -1489,16 +1558,29 @@ BR3next           inx
 BallPat           db    $7f,$00, $7e,$01, $78,$07, $60,$1f
 BallB1            db    0
 BallB2            db    0
+BallTwo           db    0                       ; the block spills into a second byte
+* The 2600 had no ball colour register - the ball took COLUPF.  In the
+* catacombs that is the background colour, so the man is invisible against
+* the room but shows as a hole punched in the lit surround.  So when the
+* wall colour is our "invisible" class the ball is masked out of whatever
+* is under it instead of being OR-ed in.
 DrawBall          ldy   NewSig+11
-                  bne   :vis                    ; invisible room
-                  rts
-:vis              lda   ClassMaskE,y
+                  bne   :colour
+                  lda   #$7f                    ; a hole: all seven pixels
+                  sta   RMaskE
+                  sta   RMaskO
+                  lda   #$ff
+                  sta   BallCut
+                  bne   :geom
+:colour           lda   #0
+                  sta   BallCut
+                  lda   ClassMaskE,y
                   ora   ClassHi,y
                   sta   RMaskE
                   lda   ClassMaskO,y
                   ora   ClassHi,y
                   sta   RMaskO
-                  lda   NewSig+10
+:geom             lda   NewSig+10
                   bne   :on
                   rts
 :on               lda   #105
@@ -1512,8 +1594,7 @@ DrawBall          ldy   NewSig+11
 :onscr            cmp   #192
                   bcc   :ok
                   rts
-:ok
-                  sta   RLine
+:ok               sta   RLine
                   lda   #8
                   sta   RRows
                   lda   NewSig+9
@@ -1530,8 +1611,7 @@ DrawBall          ldy   NewSig+11
                   beq   :real
                   rts
 * the two screen bytes are the same on every line: build them once
-:real
-                  lda   RX
+:real             lda   RX
                   and   #1
                   bne   :odd
                   lda   RMaskE
@@ -1553,6 +1633,24 @@ DrawBall          ldy   NewSig+11
                   ldy   RCnt
                   jsr   BallByte
                   sta   BallB2
+                  sta   BallTwo
+                  lda   BallCut
+                  beq   :ora
+                  lda   BallB1                  ; clear those pixels, keep the
+                  eor   #$7f                    ; byte's colour hi bit
+                  ora   #$80
+                  sta   BallB1
+                  lda   BallB2
+                  eor   #$7f
+                  ora   #$80
+                  sta   BallB2
+                  lda   #$2d                    ; AND abs
+                  bne   :op
+:ora              lda   #$0d                    ; ORA abs
+:op               sta   :o1
+                  sta   :o2
+                  sta   :o3
+                  sta   :o4
 * two lines at a time: the next one is the same byte, $400 lower
 :line             ldy   RLine
                   cpy   #192
@@ -1569,21 +1667,21 @@ DrawBall          ldy   NewSig+11
                   sta   RQ+1
                   ldy   RX
                   lda   (RP),y
-                  ora   BallB1
+:o1               ora   BallB1
                   sta   (RP),y
                   lda   (RQ),y
-                  ora   BallB1
+:o2               ora   BallB1
                   sta   (RQ),y
-                  lda   BallB2                  ; a 7-pixel block only spills
+                  lda   BallTwo                 ; a 7-pixel block only spills
                   beq   :n                      ; into the next byte off-phase
                   iny
                   cpy   #40
                   bcs   :n
                   lda   (RP),y
-                  ora   BallB2
+:o3               ora   BallB2
                   sta   (RP),y
                   lda   (RQ),y
-                  ora   BallB2
+:o4               ora   BallB2
                   sta   (RQ),y
 :n                inc   RLine
                   inc   RLine
