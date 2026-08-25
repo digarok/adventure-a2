@@ -23,7 +23,10 @@ for scene in "$@"; do
     if [ $mode = forced ]; then
       sed 's|^FORCEREDRAW$|00/60fe:ff ff ff ff ff ff ff ff|' "$SRC" > /tmp/ghost-$$.txt
     else
-      sed '/^FORCEREDRAW$/d' "$SRC" > /tmp/ghost-$$.txt
+      # the harness takes one command per frame, so this has to stay a
+      # line - dropping it would shift everything after it by a frame and
+      # the two runs would no longer be comparable
+      sed 's|^FORCEREDRAW$|00/002f:00|' "$SRC" > /tmp/ghost-$$.txt
     fi
     ./tools/harness.sh a2 "$SECS" -script /tmp/ghost-$$.txt > /tmp/ghost-$$.log 2>&1 || true
     if grep -q "BRK at" /tmp/ghost-$$.log; then

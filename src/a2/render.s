@@ -11,26 +11,33 @@
 * Keyed on the graphics pointer, not the room number: Portals can change
 * the room after the last SetupRoomPrint, so the number alone lies.
 DrawnSig          db    $ff,$ff,$ff,$ff, $ff,$ff,$ff,$ff
-* Per page, per drawn item (0 = object 1, 1 = object 2, 2 = the ball):
-* what was drawn (sprite, x, y, colour) and the rectangle it went into.
-* An item whose signature is unchanged is left alone - in Adventure only
-* the ball usually moves, so the big sprites cost nothing most frames.
-SlotSig           ds    2*3*4
-SlotRect          ds    2*3*4                   ; x, w, top line, lines
-NewSig            ds    3*4
-NewRect           ds    3*4                     ; measured rect, before drawing
-OldRect           ds    3*4                     ; what this page had before
-UnionRect         ds    3*4                     ; old and new together
-SolidSlot         ds    3                       ; item may be drawn edge-only
-DamagedOnly       ds    3                       ; only redrawn because a neighbour was
-NeedDamage        ds    3                       ; ...as well as its own edges
+* One slot per thing on screen: every object that is in the room, in
+* object order, then the ball.  The 2600 could only put two objects up at
+* once and rotated them, which is why Adventure strobes; nothing here has
+* to, and a steady picture also costs less, because an item that has not
+* moved is left alone rather than being torn down and rebuilt every tick.
+* Collisions still come from the core's own two cached objects, so the
+* game plays exactly as it did.
+NSLOT             equ   8                       ; seven objects and the ball
+BALLSLOT          equ   NSLOT-1
+SlotSig           ds    2*NSLOT*4               ; sprite, x, y, colour
+SlotRect          ds    2*NSLOT*4               ; x, w, top line, lines
+NewSig            ds    NSLOT*4
+NewRect           ds    NSLOT*4                 ; measured rect, before drawing
+OldRect           ds    NSLOT*4                 ; what this page had before
+UnionRect         ds    NSLOT*4                 ; old and new together
+SolidSlot         ds    NSLOT                   ; item may be drawn edge-only
+DamagedOnly       ds    NSLOT                   ; only redrawn because a neighbour was
+NeedDamage        ds    NSLOT                   ; ...as well as its own edges
 DrawMode          db    0                       ; 1 = this pass is the damage patch
-ErasedRect        ds    3*4                     ; what each item's erase restored
+ErasedRect        ds    NSLOT*4                     ; what each item's erase restored
 DamageRect        ds    4                       ; ...of the others, for one item
 MeasureOnly       db    0
 ItemSpr           db    0
-ChgFlags          ds    3
-SlotBase          db    0                       ; page*12
+ChgFlags          ds    NSLOT
+ActiveList        ds    NSLOT                   ; slots with something to say
+ActiveN           db    0
+SlotBase          db    0                       ; page*NSLOT*4
 CurSlot           db    0
 FullRedraw        db    0
 DrawPage          db    0                       ; page being drawn (back page)
@@ -186,7 +193,7 @@ DrawFrame         jsr   LatchCollisions
                   sta   FullRedraw
 :objects          lda   DrawPage
                   beq   :b0
-                  lda   #12
+                  lda   #NSLOT*4
 :b0               sta   SlotBase
                   lda   SceneTick               ; snapshot once per 20 Hz tick so
                   beq   :snapped                ; both pages get the same picture
@@ -238,7 +245,7 @@ MeasureItems      lda   #0
                   lda   ChgFlags,y
                   beq   :next
                   lda   CurSlot
-                  cmp   #2                      ; the ball is never "solid"
+                  cmp   #BALLSLOT               ; the ball is never "solid"
                   beq   :next
                   lda   NewSig,x
                   tay
@@ -249,50 +256,62 @@ MeasureItems      lda   #0
                   jsr   DrawItem                ; MeasureOnly: fills NewRect
 :next             inc   CurSlot
                   lda   CurSlot
-                  cmp   #3
+                  cmp   #NSLOT
                   bne   :item
                   rts
 
 * Two items that overlap have to be redrawn together, and drawn whole:
 * the edge-only shortcut assumes the overlap still holds good pixels.
-SpreadChanges     lda   #0
-                  sta   DamagedOnly
-                  sta   DamagedOnly+1
-                  sta   DamagedOnly+2
-                  sta   NeedDamage
-                  sta   NeedDamage+1
-                  sta   NeedDamage+2
-                  lda   ChgFlags                ; nothing to spread if every
-                  and   ChgFlags+1              ; item is being redrawn and
-                  and   ChgFlags+2              ; none of them is solid
-                  beq   :work
-                  lda   SolidSlot
-                  ora   SolidSlot+1
-                  ora   SolidSlot+2
+SpreadChanges     ldx   #NSLOT-1
+                  lda   #0
+:clr              sta   DamagedOnly,x
+                  sta   NeedDamage,x
+                  dex
+                  bpl   :clr
+                  ldx   #NSLOT-1                ; anything not being redrawn,
+:chk              lda   ChgFlags,x              ; or anything solid, means
+                  beq   :work                   ; there is work to do
+                  lda   SolidSlot,x
                   bne   :work
+                  dex
+                  bpl   :chk
                   rts
 :work             jsr   BuildUnions
-                  ldx   #2                      ; settle over three items
-:pass             stx   T3
-                  ldy   #0                      ; pairs 0-1, 0-2, 1-2
+                  lda   ActiveN
+                  cmp   #2
+                  bcs   :pairs
+                  rts
+:pairs            lda   #2                      ; settle over the slots
+                  sta   T5
+:pass             lda   #0
+                  sta   T2                      ; first of the pair
+:i                lda   T2
+                  clc
+                  adc   #1
+                  sta   T4                      ; second of the pair
+:j                ldx   T2
+                  lda   ActiveList,x
+                  sta   T0
+                  ldx   T4
+                  lda   ActiveList,x
+                  sta   T1
                   jsr   PairCheck
-                  ldy   #1
-                  jsr   PairCheck
-                  ldy   #2
-                  jsr   PairCheck
-                  ldx   T3
-                  dex
+                  inc   T4
+                  lda   T4
+                  cmp   ActiveN
+                  bcc   :j
+                  inc   T2
+                  lda   T2
+                  clc
+                  adc   #1
+                  cmp   ActiveN
+                  bcc   :i
+                  dec   T5
                   bne   :pass
                   rts
 
-PairTabA          db    0,0,1
-PairTabB          db    1,2,2
-* Y = pair number
-PairCheck         lda   PairTabA,y
-                  sta   T0
-                  lda   PairTabB,y
-                  sta   T1
-                  ldx   T0
+* T0 and T1 are the two slots
+PairCheck         ldx   T0
                   lda   ChgFlags,x
                   ldx   T1
                   ora   ChgFlags,x
@@ -451,6 +470,7 @@ BuildDamageFor    lda   #0
 * where a solid item is about to move to (its erase is edge-only, so its
 * new position has to count as well).
 BuildUnions       lda   #0
+                  sta   ActiveN
                   sta   CurSlot
 :item             jsr   SlotRectIdx
                   lda   CurSlot
@@ -466,7 +486,7 @@ BuildUnions       lda   #0
                   lda   SlotRect+3,x
                   sta   UnionRect+3,y
                   lda   NewRect+3,y             ; solid items only
-                  beq   :next
+                  beq   :act
                   lda   SlotRect+3,x
                   bne   :both
                   lda   NewRect,y               ; nothing was there before
@@ -477,7 +497,7 @@ BuildUnions       lda   #0
                   sta   UnionRect+2,y
                   lda   NewRect+3,y
                   sta   UnionRect+3,y
-                  jmp   :next
+                  jmp   :act
 :both             lda   SlotRect,x              ; left edge
                   cmp   NewRect,y
                   bcc   :lx
@@ -514,9 +534,22 @@ BuildUnions       lda   #0
 :by               sec
                   sbc   UnionRect+2,y
                   sta   UnionRect+3,y
+:act              ldy   CurSlot                 ; empty and untouched slots can
+                  lda   ChgFlags,y              ; neither damage nor be damaged
+                  bne   :add
+                  lda   CurSlot
+                  asl
+                  asl
+                  tay
+                  lda   UnionRect+3,y
+                  beq   :next
+:add              ldx   ActiveN
+                  lda   CurSlot
+                  sta   ActiveList,x
+                  inc   ActiveN
 :next             inc   CurSlot
                   lda   CurSlot
-                  cmp   #3
+                  cmp   #NSLOT
                   beq   :done
                   jmp   :item
 :done             rts
@@ -576,7 +609,7 @@ DrawItems         lda   #0
                   sta   DrawMode
 :next             inc   CurSlot
                   lda   CurSlot
-                  cmp   #3
+                  cmp   #NSLOT
                   bne   :item
                   rts
 
@@ -588,7 +621,7 @@ DrawItem          lda   CurSlot
                   lda   NewSig,x
                   sta   ItemSpr
                   lda   CurSlot
-                  cmp   #2
+                  cmp   #BALLSLOT
                   bne   :obj
                   jmp   DrawBall
 :obj              lda   NewSig+1,x
@@ -603,30 +636,63 @@ DrawItem          lda   CurSlot
 
 *-------------------------------------------------------------
 * What should be on screen this frame, per item.
-BuildNewSig       lda   Obj1SprId
-                  sta   NewSig
-                  lda   Obj1X
-                  sta   NewSig+1
-                  lda   Obj1Y
-                  sta   NewSig+2
-                  lda   Obj1Color
-                  sta   NewSig+3
-                  lda   Obj2SprId
-                  sta   NewSig+4
-                  lda   Obj2X
-                  sta   NewSig+5
-                  lda   Obj2Y
-                  sta   NewSig+6
-                  lda   Obj2Color
-                  sta   NewSig+7
-                  lda   #$fe                    ; the ball has no sprite id
-                  sta   NewSig+8
+BuildNewSig       lda   #0
+                  sta   RCnt                    ; slot being filled
+                  ldx   #0                      ; object number
+:obj              stx   T3
+                  lda   Store1,x                ; where its dynamic data lives
+                  tax
+                  lda   $00,x                   ; the room it is in
+                  cmp   BallRoom
+                  bne   :skip
+                  lda   RCnt
+                  cmp   #BALLSLOT               ; no slots left
+                  bcs   :skip
+                  ldx   T3
+                  jsr   GetObjPrintInfo         ; A = sprite, T0/T1/T2 = x/y/colour
+                  sta   T4
+                  lda   RCnt
+                  asl
+                  asl
+                  tax
+                  lda   T4
+                  sta   NewSig,x
+                  lda   T0
+                  sta   NewSig+1,x
+                  lda   T1
+                  sta   NewSig+2,x
+                  lda   T2
+                  sta   NewSig+3,x
+                  inc   RCnt
+:skip             lda   T3
+                  clc
+                  adc   #9
+                  cmp   #162
+                  bcs   :spare
+                  tax
+                  jmp   :obj
+:spare            ldx   RCnt                    ; nothing in the slots left over
+:blank            cpx   #BALLSLOT
+                  beq   :ball
+                  txa
+                  asl
+                  asl
+                  tay
+                  lda   #0
+                  sta   NewSig,y
+                  sta   NewSig+1,y
+                  sta   NewSig+2,y
+                  sta   NewSig+3,y
+                  inx
+                  jmp   :blank
+:ball             lda   #$fe                    ; the ball has no sprite id
+                  sta   NewSig+BALLSLOT*4
                   lda   BallX
-                  sta   NewSig+9
+                  sta   NewSig+BALLSLOT*4+1
                   lda   BallY
-                  sta   NewSig+10
+                  sta   NewSig+BALLSLOT*4+2
                   lda   WallClass               ; the ball takes the wall colour
-                  sta   NewSig+11
+                  sta   NewSig+BALLSLOT*4+3
                   rts
 
 * ChgFlags[i] = nonzero if item i must be redrawn on this page
@@ -673,7 +739,7 @@ MarkChanged       ldx   #0                      ; NewSig index
                   iny
                   inc   RCnt
                   lda   RCnt
-                  cmp   #3
+                  cmp   #NSLOT
                   bne   :item
                   rts
 
@@ -746,10 +812,14 @@ SetSlotRect       lda   RX
 
 * restore what the changed items covered on this page.  After a full
 * room redraw there is nothing to undo.
-EraseChanged      lda   #0
-                  sta   ErasedRect+3            ; nothing undone yet
-                  sta   ErasedRect+7
-                  sta   ErasedRect+11
+EraseChanged      ldx   #NSLOT*4-4              ; nothing undone yet
+                  lda   #0
+:clr              sta   ErasedRect+3,x
+                  dex
+                  dex
+                  dex
+                  dex
+                  bpl   :clr
                   lda   FullRedraw
                   bne   :done
                   lda   #0
@@ -762,7 +832,7 @@ EraseChanged      lda   #0
                   jsr   EraseOld
 :next             inc   CurSlot
                   lda   CurSlot
-                  cmp   #3
+                  cmp   #NSLOT
                   bne   :item
 :done             rts
 
@@ -1205,11 +1275,16 @@ DrawRoom          ldx   DrawPage
 * the page is wiped, so nothing is left of the items that were on it
                   ldx   DrawPage
                   beq   :s0
-                  ldx   #12
-:s0               lda   #0
-                  sta   SlotRect+3,x
-                  sta   SlotRect+7,x
-                  sta   SlotRect+11,x
+                  ldx   #NSLOT*4
+:s0               ldy   #NSLOT
+                  lda   #0
+:s1               sta   SlotRect+3,x
+                  inx
+                  inx
+                  inx
+                  inx
+                  dey
+                  bne   :s1
                   jsr   BuildTemplate
                   lda   #0
                   sta   RLine
@@ -1668,7 +1743,7 @@ BallTwo           db    0                       ; the block spills into a second
 * the room but shows as a hole punched in the lit surround.  So when the
 * wall colour is our "invisible" class the ball is masked out of whatever
 * is under it instead of being OR-ed in.
-DrawBall          ldy   NewSig+11
+DrawBall          ldy   NewSig+31
                   bne   :colour
                   lda   #$7f                    ; a hole: all seven pixels
                   sta   RMaskE
@@ -1684,12 +1759,12 @@ DrawBall          ldy   NewSig+11
                   lda   ClassMaskO,y
                   ora   ClassHi,y
                   sta   RMaskO
-:geom             lda   NewSig+10
+:geom             lda   NewSig+30
                   bne   :on
                   rts
 :on               lda   #105
                   sec
-                  sbc   NewSig+10
+                  sbc   NewSig+30
                   bcs   :below
                   rts
 :below            asl
@@ -1701,7 +1776,7 @@ DrawBall          ldy   NewSig+11
 :ok               sta   RLine
                   lda   #8
                   sta   RRows
-                  lda   NewSig+9
+                  lda   NewSig+29
                   lsr
                   lsr
                   cmp   #40                     ; off the right of the screen?
@@ -1725,7 +1800,7 @@ DrawBall          ldy   NewSig+11
                   ldy   RMaskE
 :mk               sta   RDx                     ; mask for byte RX
                   sty   RCnt                    ; mask for byte RX+1
-                  lda   NewSig+9
+                  lda   NewSig+29
                   and   #3
                   asl
                   tax
