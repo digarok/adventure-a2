@@ -1,3 +1,4 @@
-build/
 *_Output.txt
 .DS_Store
+__pycache__/
+build/

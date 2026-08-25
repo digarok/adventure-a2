@@ -1,0 +1,20 @@
+wait 420
+key r
+wait 30
+mem 00/0088 8
+hold up
+wait 200
+release
+shot 10-up.png
+mem 00/0088 8
+hold left
+wait 200
+release
+shot 11-left.png
+mem 00/0088 8
+hold down
+wait 60
+release
+shot 12-down.png
+mem 00/0088 8
+echo done

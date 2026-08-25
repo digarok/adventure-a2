@@ -72,3 +72,35 @@ CXM1FB            equ   $f5                     ; bit6 ball-missile1 (right thin
 CXP0FB            equ   $f6                     ; bit6 ball-player0
 CXP1FB            equ   $f7                     ; bit6 ball-player1
 CXPPMM            equ   $f8                     ; bit7 player0-player1
+* ZP copies of ROM-resident object data (filled from ZPConsts at start)
+PortInfo1         equ   $60                     ; room,x,y of the 3 portcullises
+PortInfo2         equ   $63
+PortInfo3         equ   $66
+AuthorInfo        equ   $69
+NumberInfo        equ   $6c
+ZeroState         equ   $6f                     ; state byte for objects with one state
+* port-specific variables ($10-$2f; $78-$7f is scratch the bat may write to)
+PFOverride        equ   $10                     ; $ff = none, else 2600 color for playfield (game over flash)
+DynAddr2          equ   $11
+T0                equ   $12
+T1                equ   $13
+T2                equ   $14
+T3                equ   $15
+T4                equ   $16
+T5                equ   $17
+DescA             equ   $18                     ; collision descriptors: x,y,sprite id
+DescB             equ   $1b
+CkT               equ   $1e
+CtT               equ   $1f
+RowT              equ   $20
+DxT               equ   $21
+XLo               equ   $22
+XHi               equ   $23
+CLo               equ   $24
+CHi               equ   $25
+QuitFlag          equ   $26                     ; set by ReadInput on Esc
+RoomColor         equ   $27                     ; 2600 color of the playfield this frame
+RoomCtrl          equ   $28                     ; b7 left thin wall, b6 right thin wall, b2 PF priority
+Obj1Color         equ   $29
+Obj2Color         equ   $2a
+ObjNone           equ   $a2                     ; "no object" (= null object index)

@@ -1,0 +1,14 @@
+wait 420
+key r
+wait 30
+mem 00/0080 80
+mem 00/0010 20
+hold down
+wait 10
+mem 00/0080 80
+mem 00/0010 20
+wait 60
+mem 00/0080 80
+mem 00/0010 20
+release
+echo done

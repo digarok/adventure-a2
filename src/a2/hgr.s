@@ -88,7 +88,8 @@ SetupVBL          lda   $FBB3
 :foundII          lda   #$60                    ; RTS: no VBL on II/II+
                   sta   WaitVBL
                   rts
-:foundIIc         lda   #$EA
+:foundIIc         inc   HasAKD
+                  lda   #$EA
                   sta   ShutDownVBL
                   lda   #OP_BPL
                   sta   __waitRasterOp
@@ -101,11 +102,13 @@ SetupVBL          lda   $FBB3
                   sta   $C05B
                   sta   $C07E
                   rts
-:foundIIe         lda   #OP_BPL
+:foundIIe         inc   HasAKD
+                  lda   #OP_BPL
                   sta   __waitRasterOp
                   lda   #OP_BMI
                   sta   __waitVBLOp
-:foundIIgs        rts
+:foundIIgs        inc   HasAKD
+                  rts
 
 ShutDownVBL       rts                           ; SMC'd to NOP on IIc
 :lastVBL          bit   $C019

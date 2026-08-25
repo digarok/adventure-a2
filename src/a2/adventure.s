@@ -46,42 +46,10 @@ BodyStart         =     *
 Main              cld
                   jsr   SetupVBL
                   jsr   HGRInit
-                  jsr   TestPattern
-:loop             jsr   WaitVBL
-                  lda   KEY
-                  bpl   :loop
-                  sta   STROBE
-                  cmp   #$9b                    ; Esc
-                  bne   :loop
+                  jsr   StartGame               ; returns on Esc
                   jmp   Quit
 
-* temporary M1 pattern: colored bands on page 1
-TestPattern       ldx   #0
-:line             txa
-                  lsr
-                  lsr
-                  lsr
-                  lsr
-                  lsr                           ; band = line/32
-                  tay
-                  lda   :colors,y
-                  pha
-                  lda   HgrLo,x
-                  sta   $00
-                  lda   HgrHi,x
-                  sta   $01
-                  pla
-                  ldy   #39
-:fill             sta   ($00),y
-                  eor   :flip
-                  dey
-                  bpl   :fill
-                  inx
-                  cpx   #192
-                  bne   :line
-                  rts
-:colors           db    $7f,$55,$2a,$d5,$aa,$7f
-:flip             db    $7f
+WaitFrame         jmp   WaitVBL
 
 Quit              sta   TXTSET
                   sta   PAGE1
@@ -97,4 +65,11 @@ QuitParm          dfb   4
                   da    $0000
 
                   put   hgr
+                  put   render
+                  put   input
+                  put   gfxhgr
+                  put   ../core/game
+                  put   ../core/collide
+                  put   ../core/data
+                  put   ../core/gfx2600
 BodyEnd           =     *

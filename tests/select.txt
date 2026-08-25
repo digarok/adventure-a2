@@ -1,0 +1,19 @@
+wait 420
+shot 20-game1.png
+key s
+wait 60
+shot 21-game2.png
+mem 00/00dd 4
+key s
+wait 60
+shot 22-game3.png
+mem 00/00dd 4
+key s
+wait 60
+shot 23-game1again.png
+mem 00/00dd 4
+key r
+wait 60
+shot 24-start.png
+mem 00/0088 8
+echo done
