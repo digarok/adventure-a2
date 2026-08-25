@@ -1,0 +1,49 @@
+wait 420
+key r
+wait 60
+00/008a:04 37 40
+00/00e2:04 37 40
+00/00bc:04 29 58
+speed 1
+wait 60
+mem 00/00e5 2
+hold up
+wait 40
+release
+hold down
+wait 40
+release
+hold up
+wait 40
+release
+hold down
+wait 40
+release
+hold up
+wait 40
+release
+hold down
+wait 40
+release
+hold up
+wait 40
+release
+hold down
+wait 40
+release
+hold up
+wait 40
+release
+hold down
+wait 40
+release
+hold up
+wait 40
+release
+hold down
+wait 40
+release
+mem 00/00e5 2
+mem 00/008a 4
+shot bridgemove.png
+echo done

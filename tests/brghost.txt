@@ -1,0 +1,114 @@
+wait 420
+key r
+wait 60
+00/008a:04 37 40
+00/00e2:04 37 40
+00/00bc:04 29 58
+wait 20
+hold down
+wait 18
+release
+wait 3
+hold right
+wait 25
+release
+wait 3
+hold left
+wait 20
+release
+wait 3
+hold down
+wait 20
+release
+wait 3
+hold down
+wait 21
+release
+wait 3
+hold down
+wait 5
+release
+wait 3
+hold up
+wait 16
+release
+wait 3
+hold right
+wait 7
+release
+wait 3
+hold down
+wait 12
+release
+wait 3
+hold down
+wait 6
+release
+wait 3
+hold right
+wait 18
+release
+wait 3
+hold right
+wait 6
+release
+wait 3
+hold left
+wait 22
+release
+wait 3
+hold right
+wait 8
+release
+wait 3
+hold left
+wait 5
+release
+wait 3
+hold down
+wait 7
+release
+wait 3
+hold up
+wait 5
+release
+wait 3
+hold right
+wait 10
+release
+wait 3
+hold left
+wait 17
+release
+wait 3
+hold right
+wait 9
+release
+wait 3
+hold down
+wait 6
+release
+wait 3
+hold right
+wait 12
+release
+wait 3
+hold up
+wait 11
+release
+wait 3
+hold down
+wait 23
+release
+wait 3
+hold up
+wait 8
+release
+wait 3
+wait 10
+shot br-incremental.png
+00/60fe:ff ff ff ff ff ff ff ff
+wait 8
+shot br-full.png
+mem 00/008a 4
+echo done

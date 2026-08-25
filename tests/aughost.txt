@@ -1,0 +1,113 @@
+wait 420
+key r
+wait 60
+00/008a:1e 50 40
+00/00e2:1e 50 40
+wait 20
+hold right
+wait 22
+release
+wait 3
+hold right
+wait 11
+release
+wait 3
+hold left
+wait 9
+release
+wait 3
+hold right
+wait 14
+release
+wait 3
+hold left
+wait 19
+release
+wait 3
+hold right
+wait 15
+release
+wait 3
+hold right
+wait 17
+release
+wait 3
+hold left
+wait 5
+release
+wait 3
+hold up
+wait 10
+release
+wait 3
+hold right
+wait 5
+release
+wait 3
+hold right
+wait 7
+release
+wait 3
+hold down
+wait 23
+release
+wait 3
+hold left
+wait 22
+release
+wait 3
+hold up
+wait 10
+release
+wait 3
+hold down
+wait 25
+release
+wait 3
+hold left
+wait 15
+release
+wait 3
+hold left
+wait 24
+release
+wait 3
+hold left
+wait 12
+release
+wait 3
+hold up
+wait 10
+release
+wait 3
+hold up
+wait 10
+release
+wait 3
+hold right
+wait 16
+release
+wait 3
+hold down
+wait 6
+release
+wait 3
+hold down
+wait 18
+release
+wait 3
+hold down
+wait 23
+release
+wait 3
+hold up
+wait 16
+release
+wait 3
+wait 10
+shot au-incremental.png
+00/60fe:ff ff ff ff ff ff ff ff
+wait 8
+shot au-full.png
+mem 00/008a 4
+echo done

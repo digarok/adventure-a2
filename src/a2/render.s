@@ -22,6 +22,8 @@ NewRect           ds    3*4                     ; measured rect, before drawing
 OldRect           ds    3*4                     ; what this page had before
 UnionRect         ds    3*4                     ; old and new together
 SolidSlot         ds    3                       ; item may be drawn edge-only
+DamagedOnly       ds    3                       ; only redrawn because a neighbour was
+DamageRect        ds    4                       ; everything undone this frame
 MeasureOnly       db    0
 ItemSpr           db    0
 ChgFlags          ds    3
@@ -53,6 +55,7 @@ RMaskO            equ   $3c                     ; color mask, odd byte
 RHi               equ   $3d                     ; hi bit
 RPageHi           equ   $3e                     ; $00 or $20 added to HgrHi
 RXEnd             equ   $45                     ; one past the last screen byte
+RXOrg             equ   $4e                     ; the sprite's true left byte
 RA                equ   $46                     ; rectangle scratch: x, w, top, h
 RB                equ   $4a
 RPrio             equ   $3f                     ; nonzero: walls over sprites
@@ -247,7 +250,11 @@ MeasureItems      lda   #0
 
 * Two items that overlap have to be redrawn together, and drawn whole:
 * the edge-only shortcut assumes the overlap still holds good pixels.
-SpreadChanges     lda   ChgFlags                ; nothing to spread if every
+SpreadChanges     lda   #0
+                  sta   DamagedOnly
+                  sta   DamagedOnly+1
+                  sta   DamagedOnly+2
+                  lda   ChgFlags                ; nothing to spread if every
                   and   ChgFlags+1              ; item is being redrawn and
                   and   ChgFlags+2              ; none of them is solid
                   beq   :work
@@ -268,7 +275,7 @@ SpreadChanges     lda   ChgFlags                ; nothing to spread if every
                   ldx   T3
                   dex
                   bne   :pass
-                  rts
+                  jmp   BuildDamage
 
 PairTabA          db    0,0,1
 PairTabB          db    1,2,2
@@ -308,17 +315,84 @@ PairCheck         lda   PairTabA,y
                   jsr   RectOverlap
                   bcs   :hit
                   rts
-:hit              lda   #1
-                  ldx   T0
-                  sta   ChgFlags,x
-                  lda   #0
-                  sta   SolidSlot,x
-                  lda   #1
+:hit              ldx   T0
+                  jsr   MarkDamaged
                   ldx   T1
+MarkDamaged       lda   ChgFlags,x
+                  bne   :was
+                  lda   #1                      ; only collateral: its pixels are
+                  sta   DamagedOnly,x           ; still right outside the damage
+:was              lda   #1
                   sta   ChgFlags,x
                   lda   #0
                   sta   SolidSlot,x
                   rts
+
+* The union of the rectangles that EraseChanged will restore.  An item
+* that is only being redrawn because of them needs nothing more than that
+* area repainted.
+BuildDamage       lda   #0
+                  sta   DamageRect+3
+                  sta   CurSlot
+:item             ldy   CurSlot
+                  lda   ChgFlags,y
+                  beq   :next
+                  lda   DamagedOnly,y
+                  bne   :next
+                  jsr   SlotRectIdx
+                  lda   SlotRect+3,x
+                  beq   :next
+                  ldy   DamageRect+3
+                  bne   :grow
+                  lda   SlotRect,x              ; first one: take it whole
+                  sta   DamageRect
+                  lda   SlotRect+1,x
+                  sta   DamageRect+1
+                  lda   SlotRect+2,x
+                  sta   DamageRect+2
+                  lda   SlotRect+3,x
+                  sta   DamageRect+3
+                  jmp   :next
+:grow             lda   DamageRect              ; left edge
+                  clc
+                  adc   DamageRect+1
+                  sta   T4                      ; old right
+                  lda   SlotRect,x
+                  cmp   DamageRect
+                  bcs   :lx
+                  sta   DamageRect
+:lx               lda   SlotRect,x              ; right edge
+                  clc
+                  adc   SlotRect+1,x
+                  cmp   T4
+                  bcs   :rx
+                  lda   T4
+:rx               sec
+                  sbc   DamageRect
+                  sta   DamageRect+1
+                  lda   DamageRect+2            ; top edge
+                  clc
+                  adc   DamageRect+3
+                  sta   T4                      ; old bottom
+                  lda   SlotRect+2,x
+                  cmp   DamageRect+2
+                  bcs   :ty
+                  sta   DamageRect+2
+:ty               lda   SlotRect+2,x            ; bottom edge
+                  clc
+                  adc   SlotRect+3,x
+                  cmp   T4
+                  bcs   :by
+                  lda   T4
+:by               sec
+                  sbc   DamageRect+2
+                  sta   DamageRect+3
+:next             inc   CurSlot
+                  lda   CurSlot
+                  cmp   #3
+                  beq   :done
+                  jmp   :item
+:done             rts
 
 * What each item covers: the rectangle it is on screen with now, plus
 * where a solid item is about to move to (its erase is edge-only, so its
@@ -616,6 +690,8 @@ EraseChanged      lda   FullRedraw
 :item             ldx   CurSlot
                   lda   ChgFlags,x
                   beq   :next
+                  lda   DamagedOnly,x           ; nothing of its own was undone
+                  bne   :next
                   jsr   EraseOld
 :next             inc   CurSlot
                   lda   CurSlot
@@ -756,6 +832,88 @@ Overlap           lda   T0
                   sec
                   rts
 :no               clc
+                  rts
+
+*-------------------------------------------------------------
+* Narrow the blit to the part of the item that was undone this frame.
+* Carry set means nothing of it needs repainting.
+ClipToDamage      lda   DamageRect+3
+                  bne   :any
+                  sec
+                  rts
+:any              lda   RX                      ; columns
+                  cmp   DamageRect
+                  bcs   :x1
+                  lda   DamageRect
+:x1               sta   RX
+                  lda   DamageRect
+                  clc
+                  adc   DamageRect+1
+                  cmp   RXEnd
+                  bcs   :x2
+                  sta   RXEnd
+:x2               lda   RX
+                  cmp   RXEnd
+                  bcs   :none
+                  lda   RLine                   ; lines
+                  sta   T0
+                  clc
+                  adc   RRows
+                  sta   T1
+                  lda   DamageRect+2
+                  cmp   T0
+                  bcs   :t1
+                  lda   T0
+:t1               sta   T2
+                  lda   DamageRect+2
+                  clc
+                  adc   DamageRect+3
+                  cmp   T1
+                  bcc   :t2
+                  lda   T1
+:t2               sta   T4
+                  lda   T2
+                  cmp   T4
+                  bcs   :none
+                  lda   T2                      ; whole sprite rows only
+                  sec
+                  sbc   T0
+                  and   #$fe
+                  sta   T5
+                  clc
+                  adc   T0
+                  sta   RLine
+                  lda   T4
+                  sec
+                  sbc   RLine
+                  beq   :none
+                  clc
+                  adc   #1
+                  and   #$fe
+                  sta   RRows
+                  lda   T1
+                  sec
+                  sbc   RLine
+                  cmp   RRows
+                  bcs   :rok
+                  sta   RRows
+:rok              lda   RRows
+                  beq   :none
+                  lda   T5
+                  lsr
+                  beq   :ok
+                  tax
+:adv              lda   RQ
+                  clc
+                  adc   RBpr
+                  sta   RQ
+                  bcc   :nc
+                  inc   RQ+1
+:nc               dex
+                  bne   :adv
+:ok               clc
+                  rts
+:none             sec
                   rts
 
 *-------------------------------------------------------------
@@ -1124,6 +1282,7 @@ DrawSprite        sta   T3
                   lsr
                   lsr
                   sta   RX                      ; byte x
+                  sta   RXOrg
 * data += phase * rows * bpr
                   lda   RPhase
                   beq   :ph0
@@ -1198,7 +1357,12 @@ DrawSprite        sta   T3
                   beq   :solid
                   rts
 :solid            ldx   CurSlot
-                  lda   SolidSlot,x
+                  lda   DamagedOnly,x
+                  beq   :notdmg
+                  jsr   ClipToDamage            ; repaint just what was undone
+                  bcs   :below
+                  jmp   :row
+:notdmg           lda   SolidSlot,x
                   beq   :row
                   jsr   RestrictDraw            ; only the edges have changed
                   bcs   :below
@@ -1228,7 +1392,7 @@ DrawSprite        sta   T3
 * (No playfield priority here - see BlitRow for that.)
 BlitRow2          lda   RQ
                   sec
-                  sbc   RX
+                  sbc   RXOrg
                   sta   BR2src+1
                   lda   RQ+1
                   sbc   #0
@@ -1275,7 +1439,7 @@ BR2next           inx
 * stored rather than OR-ed.
 BlitRow3          lda   RQ
                   sec
-                  sbc   RX
+                  sbc   RXOrg
                   sta   BR3src+1
                   lda   RQ+1
                   sbc   #0

@@ -1,0 +1,50 @@
+wait 420
+key r
+wait 60
+00/008a:0a 12 46
+00/00e2:0a 12 46
+00/00bf:0a 20 50
+00/00b6:0a 60 50
+speed 1
+wait 60
+mem 00/00e5 2
+hold up
+wait 50
+release
+hold down
+wait 50
+release
+hold up
+wait 50
+release
+hold down
+wait 50
+release
+hold up
+wait 50
+release
+hold down
+wait 50
+release
+hold up
+wait 50
+release
+hold down
+wait 50
+release
+hold up
+wait 50
+release
+hold down
+wait 50
+release
+hold up
+wait 50
+release
+hold down
+wait 50
+release
+mem 00/00e5 2
+mem 00/008a 4
+shot mazeobj.png
+echo done

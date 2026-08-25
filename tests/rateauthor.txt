@@ -1,0 +1,48 @@
+wait 420
+key r
+wait 60
+00/008a:1e 50 40
+00/00e2:1e 50 40
+speed 1
+wait 60
+mem 00/00e5 2
+hold left
+wait 50
+release
+hold right
+wait 50
+release
+hold left
+wait 50
+release
+hold right
+wait 50
+release
+hold left
+wait 50
+release
+hold right
+wait 50
+release
+hold left
+wait 50
+release
+hold right
+wait 50
+release
+hold left
+wait 50
+release
+hold right
+wait 50
+release
+hold left
+wait 50
+release
+hold right
+wait 50
+release
+mem 00/00e5 2
+mem 00/008a 4
+shot author.png
+echo done
