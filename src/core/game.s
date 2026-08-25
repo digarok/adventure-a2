@@ -179,7 +179,8 @@ RandomizeLevel3   ldy   #30
 * Gathers what the display kernel needs: room gfx pointer,
 * the two objects to show and their positions/sprites/colors.
 SetupRoomPrint    lda   #$ff
-                  sta   PFOverride              ; COLUPF reloaded from room color
+                  sta   SceneTick               ; a new tick: the renderer
+                  sta   PFOverride              ; re-snapshots what to draw              ; COLUPF reloaded from room color
                   lda   BallRoom
                   jsr   RoomNumToAddress
                   ldy   #0

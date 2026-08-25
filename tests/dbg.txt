@@ -1,0 +1,45 @@
+wait 420
+key r
+wait 60
+hold down
+wait 200
+release
+hold right
+wait 200
+release
+hold down
+wait 200
+release
+mem 00/6136 c
+mem 00/6145 4
+mem 00/008b 2
+wait 1
+mem 00/6136 c
+mem 00/6145 4
+mem 00/008b 2
+wait 1
+mem 00/6136 c
+mem 00/6145 4
+mem 00/008b 2
+wait 1
+mem 00/6136 c
+mem 00/6145 4
+mem 00/008b 2
+wait 1
+mem 00/6136 c
+mem 00/6145 4
+mem 00/008b 2
+wait 1
+mem 00/6136 c
+mem 00/6145 4
+mem 00/008b 2
+wait 1
+mem 00/6136 c
+mem 00/6145 4
+mem 00/008b 2
+wait 1
+mem 00/6136 c
+mem 00/6145 4
+mem 00/008b 2
+wait 1
+echo done

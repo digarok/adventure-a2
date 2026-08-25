@@ -24,7 +24,7 @@ CurSlot           db    0
 FullRedraw        db    0
 DrawPage          db    0                       ; page being drawn (back page)
 RoomBytes         ds    7*40                    ; template: one byte per PF pixel per row
-RoomShape         ds    7*40                    ; the same rows as bare shape ($7f where wall)
+RoomOpen          ds    7*40                    ; $7f where the row is open, $00 where a wall is
 WallClass         db    0
 * per-line pointer to the template row, and per-class colour masks
 * indexed by screen byte column (parity + hi bit) - both built at init
@@ -46,6 +46,7 @@ RMaskE            equ   $3b                     ; color mask, even byte
 RMaskO            equ   $3c                     ; color mask, odd byte
 RHi               equ   $3d                     ; hi bit
 RPageHi           equ   $3e                     ; $00 or $20 added to HgrHi
+RXEnd             equ   $45                     ; one past the last screen byte
 RPrio             equ   $3f                     ; nonzero: walls over sprites
 RCnt              equ   $40
 RBpr              equ   $41
@@ -57,9 +58,16 @@ ClassMaskE        db    $00,$7f,$55,$2a,$55,$2a
 ClassMaskO        db    $00,$7f,$2a,$55,$2a,$55
 ClassHi           db    $00,$00,$00,$00,$80,$80
 * 2600 hue (color>>4) -> class.  Hue 0 handled by luminance.
-HueClass          db    1,1,5,5,5,2,2,2,4,4,4,3,3,3,3,5
+HueClass          db    1,5,5,5,5,2,2,2,4,4,4,3,3,3,3,5
 
-* A = 2600 color -> A = class
+* A = 2600 colour -> A = class.  Objects come in at ObjColorClass so
+* that the 2600's black objects (portcullises, black key, bat, magnet)
+* come out violet: we cannot draw black on a black background, and the
+* walls already use white for it - the gate has to differ from its castle.
+ObjColorClass     cmp   #$06
+                  bcs   ColorClass
+                  lda   #2
+                  rts
 ColorClass        cmp   #$10
                   bcs   :hue
                   cmp   #$06
@@ -164,8 +172,12 @@ DrawFrame         jsr   LatchCollisions
                   beq   :b0
                   lda   #12
 :b0               sta   SlotBase
+                  lda   SceneTick               ; snapshot once per 20 Hz tick so
+                  beq   :snapped                ; both pages get the same picture
+                  lda   #0
+                  sta   SceneTick
                   jsr   BuildNewSig
-                  jsr   MarkChanged
+:snapped          jsr   MarkChanged
                   jsr   EraseChanged
 * draw the changed items
                   lda   ChgFlags
@@ -173,28 +185,28 @@ DrawFrame         jsr   LatchCollisions
                   lda   #0
                   sta   CurSlot
                   jsr   ClearSlotRect
-                  lda   Obj1X
+                  lda   NewSig+1
                   sta   RX
-                  lda   Obj1Y
+                  lda   NewSig+2
                   sta   RLine
-                  lda   Obj1Color
-                  jsr   ColorClass
+                  lda   NewSig+3
+                  jsr   ObjColorClass
                   tay
-                  lda   Obj1SprId
+                  lda   NewSig
                   jsr   DrawSprite
 :d2               lda   ChgFlags+1
                   beq   :d3
                   lda   #1
                   sta   CurSlot
                   jsr   ClearSlotRect
-                  lda   Obj2X
+                  lda   NewSig+5
                   sta   RX
-                  lda   Obj2Y
+                  lda   NewSig+6
                   sta   RLine
-                  lda   Obj2Color
-                  jsr   ColorClass
+                  lda   NewSig+7
+                  jsr   ObjColorClass
                   tay
-                  lda   Obj2SprId
+                  lda   NewSig+4
                   jsr   DrawSprite
 :d3               lda   ChgFlags+2
                   beq   :flip
@@ -430,7 +442,7 @@ TemplateRow       sta   T5
                   rts
 
 * RoomBytes[row][col] = wall byte (color pattern) or 0, plus thin walls
-RShp              equ   $43                     ; shape template pointer
+RShp              equ   $43                     ; RoomOpen row pointer
 BuildTemplate     ldx   WallClass
                   lda   ClassMaskE,x
                   ora   ClassHi,x
@@ -442,9 +454,9 @@ BuildTemplate     ldx   WallClass
                   sta   RTmpl
                   lda   #>RoomBytes
                   sta   RTmpl+1
-                  lda   #<RoomShape
+                  lda   #<RoomOpen
                   sta   RShp
-                  lda   #>RoomShape
+                  lda   #>RoomOpen
                   sta   RShp+1
                   lda   #0
                   sta   RCnt                    ; row
@@ -457,7 +469,7 @@ BuildTemplate     ldx   WallClass
                   beq   :empty
                   pla
                   tay
-                  lda   #$7f                    ; wall shape, colour aside
+                  lda   #0                      ; wall: hides sprites above it
                   sta   (RShp),y
                   tya
                   and   #1
@@ -468,8 +480,9 @@ BuildTemplate     ldx   WallClass
                   jmp   :store
 :empty            pla
                   tay
-                  lda   #0
+                  lda   #$7f                    ; open
                   sta   (RShp),y
+                  lda   #0
 :store            sta   (RTmpl),y
                   iny
                   cpy   #40
@@ -484,8 +497,8 @@ BuildTemplate     ldx   WallClass
                   ora   (RTmpl),y
                   sta   (RTmpl),y
                   ldy   #3
-                  lda   #$06
-                  ora   (RShp),y
+                  lda   (RShp),y
+                  and   #$79
                   sta   (RShp),y
 :nol              lda   RoomCtrl
                   and   #$40
@@ -496,8 +509,8 @@ BuildTemplate     ldx   WallClass
                   ora   (RTmpl),y
                   sta   (RTmpl),y
                   ldy   #37
-                  lda   #$18
-                  ora   (RShp),y
+                  lda   (RShp),y
+                  and   #$67
                   sta   (RShp),y
 :nor              lda   RTmpl
                   clc
@@ -583,8 +596,10 @@ DrawSprite        sta   T3
                   sta   RHi
                   lda   MaskTabL,y
                   sta   BR2mask+1
+                  sta   BR3mask+1
                   lda   MaskTabH,y
                   sta   BR2mask+2
+                  sta   BR3mask+2
                   lda   SprHgrBpr,x
                   sta   RBpr
                   lda   SprHgrL,x
@@ -593,7 +608,10 @@ DrawSprite        sta   T3
                   sta   RQ+1
                   lda   RX
                   and   #3
-                  sta   RPhase
+                  ldy   SprQuad,x                ; quad bits are whole HGR bytes:
+                  beq   :ph                      ; no pre-shifted phases for those
+                  lda   #0
+:ph               sta   RPhase
                   lda   RX
                   lsr
                   lsr
@@ -658,18 +676,22 @@ DrawSprite        sta   T3
 :fits2            sec
                   sbc   RLine
                   sta   RRows                   ; clipped line count
+                  lda   RX
+                  clc
+                  adc   RBpr
+                  cmp   #41
+                  bcc   :xok
+                  lda   #40
+:xok              sta   RXEnd
                   jsr   SetSlotRect
 :row              lda   RPrio
-                  bne   :slow
+                  bne   :prio
                   jsr   BlitRow2                ; both lines in one pass
-                  inc   RLine
-                  inc   RLine
                   jmp   :adv
-:slow             jsr   BlitRow
+:prio             jsr   BlitRow3                ; ... with walls in front
+:adv              inc   RLine
                   inc   RLine
-                  jsr   BlitRow
-                  inc   RLine
-:adv              lda   RQ
+                  lda   RQ
                   clc
                   adc   RBpr
                   sta   RQ
@@ -725,67 +747,56 @@ BR2next           inx
                   bne   BR2byte
 BR2done           rts
 
-* OR one sprite row (RBpr bytes at RQ) into line RLine at byte RX
-BlitRow           lda   RLine
-                  cmp   #192
-                  bcs   :done
-                  tax
-                  lda   HgrLo,x
-                  sta   RP
-                  lda   HgrHi,x
+* Same, for rooms where the playfield is in front of the sprites
+* (CTRLPF bit 2).  That is how the invisible surround reveals the
+* catacomb mazes: the box shows wherever the room is open.
+* Everything is indexed by the screen byte column, so the sprite row
+* is reached through a base of RQ-RX; and because a pixel only lands
+* where the room is open, the byte underneath is background and can be
+* stored rather than OR-ed.
+BlitRow3          lda   RQ
+                  sec
+                  sbc   RX
+                  sta   BR3src+1
+                  lda   RQ+1
+                  sbc   #0
+                  sta   BR3src+2
+                  ldy   RLine
+                  lda   TmplLo,y
+                  clc
+                  adc   #<RoomOpen-RoomBytes
+                  sta   BR3op+1
+                  lda   TmplHi,y
+                  adc   #>RoomOpen-RoomBytes
+                  sta   BR3op+2
+                  lda   HgrLo,y
+                  sta   BR3a+1
+                  lda   HgrHi,y
                   clc
                   adc   RPageHi
-                  sta   RP+1
-                  lda   RLine
-                  jsr   RowOfLine
-                  jsr   TemplateRow
-                  lda   RTmpl                   ; priority masking uses the shape rows
+                  sta   BR3a+2
+                  iny
+                  lda   HgrLo,y
+                  sta   BR3b+1
+                  lda   HgrHi,y
                   clc
-                  adc   #<RoomShape-RoomBytes
-                  sta   RTmpl
-                  lda   RTmpl+1
-                  adc   #>RoomShape-RoomBytes
-                  sta   RTmpl+1
-                  ldy   #0
-                  sty   RDx
-:byte             lda   RX
-                  clc
-                  adc   RDx
-                  cmp   #40
-                  bcs   :done
-                  tay
-                  and   #1
-                  bne   :odd
-                  lda   RMaskE
-                  jmp   :mask
-:odd              lda   RMaskO
-:mask             sta   T5
-                  ldy   RDx
-                  lda   (RQ),y
-                  and   T5
-                  beq   :next                   ; nothing to draw
+                  adc   RPageHi
+                  sta   BR3b+2
+                  ldx   RX
+BR3byte           
+BR3src            lda   HGfxNull,x
+                  beq   BR3next
+BR3mask           and   MaskTab,x               ; base patched per colour class
+                  beq   BR3next
+BR3op             and   RoomOpen,x              ; walls stay in front
+                  beq   BR3next
                   ora   RHi
-                  sta   T5
-                  lda   RX
-                  clc
-                  adc   RDx
-                  tay
-                  lda   RPrio
-                  beq   :noprio
-                  lda   (RTmpl),y               ; RTmpl points at RoomShape here
-                  and   #$7f
-                  eor   #$7f
-                  and   T5
-                  ora   RHi                     ; keep the hi-bit colour half
-                  sta   T5                      ; walls punch through
-:noprio           lda   (RP),y
-                  ora   T5
-                  sta   (RP),y
-:next             inc   RDx
-                  lda   RDx
-                  cmp   RBpr
-                  bne   :byte
-:done             rts
+BR3a              sta   $2000,x
+BR3b              sta   $2000,x
+BR3next           inx
+                  cpx   RXEnd
+                  bne   BR3byte
+                  rts
 
 *-------------------------------------------------------------
 * The ball: 4 clocks x 4 counts = 7 px x 8 lines.  The 2600 drew
@@ -794,7 +805,7 @@ BlitRow           lda   RLine
 BallPat           db    $7f,$00, $7c,$03, $70,$0f, $40,$3f
 BallB1            db    0
 BallB2            db    0
-DrawBall          ldy   WallClass
+DrawBall          ldy   NewSig+11
                   bne   :vis                    ; invisible room
                   rts
 :vis              lda   ClassMaskE,y
@@ -803,19 +814,25 @@ DrawBall          ldy   WallClass
                   lda   ClassMaskO,y
                   ora   ClassHi,y
                   sta   RMaskO
-                  lda   BallY
-                  beq   :skip
-                  lda   #105
+                  lda   NewSig+10
+                  bne   :on
+                  rts
+:on               lda   #105
                   sec
-                  sbc   BallY
-                  bcc   :skip
-                  asl
-                  cmp   #192
-                  bcs   :skip
+                  sbc   NewSig+10
+                  bcs   :below
+                  rts
+:below            asl
+                  bcc   :onscr
+                  rts
+:onscr            cmp   #192
+                  bcc   :ok
+                  rts
+:ok
                   sta   RLine
                   lda   #8
                   sta   RRows
-                  lda   BallX
+                  lda   NewSig+9
                   lsr
                   lsr
                   sta   RX
@@ -833,7 +850,7 @@ DrawBall          ldy   WallClass
                   ldy   RMaskE
 :mk               sta   RDx                     ; mask for byte RX
                   sty   RCnt                    ; mask for byte RX+1
-                  lda   BallX
+                  lda   NewSig+9
                   and   #3
                   asl
                   tax

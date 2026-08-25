@@ -67,21 +67,22 @@ def hgr_row(bits, quad, phase):
         on = (bits >> (7 - b)) & 1
         px += [on] * (7 if quad else 2)
     px = [0] * (2 * phase) + px
-    nbytes = 9 if quad else 4
+    nbytes = 8 if quad else 4
     px += [0] * (nbytes * 7 - len(px))
     return [sum(px[i*7 + k] << k for k in range(7)) for i in range(nbytes)]
 
 out = [HDR, '* layout per sprite: rows*bpr bytes for phase 0, then phase 1,2,3']
-out.append('SprHgrBpr         db    ' + ','.join('9' if s in QUAD else '4' for s in SPRITES))
+out.append('SprHgrBpr         db    ' + ','.join('8' if s in QUAD else '4' for s in SPRITES))
 out.append('SprHgrL           db    ' + ','.join('<H%s' % s for s in SPRITES))
 out.append('SprHgrH           db    ' + ','.join('>H%s' % s for s in SPRITES))
 for s in SPRITES:
     rows = sprite_rows(s)
     data = []
-    if True:
-        for phase in range(4):
-            for r in rows:
-                data += hgr_row(r, s in QUAD, phase)
+    # A quad-width bit is 4 colour clocks = exactly one 7-pixel HGR byte,
+    # so quad sprites sit on the byte grid and need no pre-shifted phases.
+    for phase in ([0] if s in QUAD else range(4)):
+        for r in rows:
+            data += hgr_row(r, s in QUAD, phase)
     out += hexline('H' + s, data)
 open(os.path.join(ROOT, 'src/a2/gfxhgr.s'), 'w').write('\n'.join(out) + '\n')
 

@@ -98,6 +98,7 @@ XLo               equ   $22
 XHi               equ   $23
 CLo               equ   $24
 CHi               equ   $25
+SceneTick         equ   $2b                     ; set by SetupRoomPrint, cleared by DrawFrame
 QuitFlag          equ   $26                     ; set by ReadInput on Esc
 RoomColor         equ   $27                     ; 2600 color of the playfield this frame
 RoomCtrl          equ   $28                     ; b7 left thin wall, b6 right thin wall, b2 PF priority

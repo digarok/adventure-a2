@@ -1,0 +1,14 @@
+wait 420
+key r
+wait 60
+00/008a:0a 12 46
+00/00e2:0a 12 46
+speed 1
+wait 60
+hold up
+wait 20
+watch 00/002c 1
+wait 6
+watch off
+release
+echo done

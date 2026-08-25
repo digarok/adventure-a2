@@ -1,0 +1,15 @@
+wait 420
+key r
+wait 60
+00/008a:0a 12 46
+00/00e2:0a 12 46
+speed 1
+wait 90
+hold up
+mem 00/00e5 2
+wait 600
+mem 00/00e5 2
+release
+mem 00/008a 4
+shot maze-rate.png
+echo done
