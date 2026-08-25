@@ -1,0 +1,13 @@
+wait 420
+key r
+wait 60
+00/00b9:12
+wait 40
+mem 00/00de 2
+shot 50-win1.png
+wait 20
+shot 51-win2.png
+wait 20
+shot 52-win3.png
+mem 00/0010 2
+echo done

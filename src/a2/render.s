@@ -11,11 +11,27 @@
 * Keyed on the graphics pointer, not the room number: Portals can change
 * the room after the last SetupRoomPrint, so the number alone lies.
 DrawnSig          db    $ff,$ff,$ff,$ff, $ff,$ff,$ff,$ff
-DirtyCnt          db    0,0
-DirtyList         ds    2*4*4                   ; page: 4 rects of x,w,top,h
+* Per page, per drawn item (0 = object 1, 1 = object 2, 2 = the ball):
+* what was drawn (sprite, x, y, colour) and the rectangle it went into.
+* An item whose signature is unchanged is left alone - in Adventure only
+* the ball usually moves, so the big sprites cost nothing most frames.
+SlotSig           ds    2*3*4
+SlotRect          ds    2*3*4                   ; x, w, top line, lines
+NewSig            ds    3*4
+ChgFlags          ds    3
+SlotBase          db    0                       ; page*12
+CurSlot           db    0
+FullRedraw        db    0
 DrawPage          db    0                       ; page being drawn (back page)
 RoomBytes         ds    7*40                    ; template: one byte per PF pixel per row
 WallClass         db    0
+* per-line pointer to the template row, and per-class colour masks
+* indexed by screen byte column (parity + hi bit) - both built at init
+TmplLo            ds    192
+TmplHi            ds    192
+MaskTab           ds    6*40
+MaskTabL          ds    6
+MaskTabH          ds    6
 * zero page scratch for the renderer (not used by the core)
 RP                equ   $30                     ; screen line pointer
 RQ                equ   $32                     ; sprite data pointer
@@ -62,6 +78,50 @@ ColorClass        cmp   #$10
                   rts
 
 *-------------------------------------------------------------
+InitRender        ldx   #0
+:l1               txa
+                  jsr   RowOfLine
+                  jsr   TemplateRow
+                  lda   RTmpl
+                  sta   TmplLo,x
+                  lda   RTmpl+1
+                  sta   TmplHi,x
+                  inx
+                  cpx   #192
+                  bne   :l1
+                  lda   #<MaskTab
+                  sta   RTmpl
+                  lda   #>MaskTab
+                  sta   RTmpl+1
+                  ldx   #0                      ; class
+:l2               lda   RTmpl
+                  sta   MaskTabL,x
+                  lda   RTmpl+1
+                  sta   MaskTabH,x
+                  ldy   #0
+:l3               tya
+                  and   #1
+                  bne   :odd
+                  lda   ClassMaskE,x
+                  jmp   :st
+:odd              lda   ClassMaskO,x
+:st               ora   ClassHi,x
+                  sta   (RTmpl),y
+                  iny
+                  cpy   #40
+                  bne   :l3
+                  lda   RTmpl
+                  clc
+                  adc   #40
+                  sta   RTmpl
+                  bcc   :nc
+                  inc   RTmpl+1
+:nc               inx
+                  cpx   #6
+                  bne   :l2
+                  rts
+
+*-------------------------------------------------------------
 DrawFrame         jsr   LatchCollisions
                   ldx   DrawPage
                   lda   #0
@@ -82,7 +142,9 @@ DrawFrame         jsr   LatchCollisions
                   ldx   DrawPage                ; ColorClass clobbers X
                   beq   :sig0
                   ldx   #4
-:sig0             lda   RoomGfxPtr
+:sig0             lda   #0
+                  sta   FullRedraw
+                  lda   RoomGfxPtr
                   cmp   DrawnSig,x
                   bne   :full
                   lda   RoomGfxPtr+1
@@ -93,13 +155,23 @@ DrawFrame         jsr   LatchCollisions
                   bne   :full
                   lda   RoomCtrl
                   cmp   DrawnSig+3,x
-                  bne   :full
-                  jsr   EraseDirty
-                  jmp   :objects
+                  beq   :objects
 :full             jsr   DrawRoom
-:objects          lda   #0
-                  ldx   DrawPage
-                  sta   DirtyCnt,x
+                  lda   #1
+                  sta   FullRedraw
+:objects          lda   DrawPage
+                  beq   :b0
+                  lda   #12
+:b0               sta   SlotBase
+                  jsr   BuildNewSig
+                  jsr   MarkChanged
+                  jsr   EraseChanged
+* draw the changed items
+                  lda   ChgFlags
+                  beq   :d2
+                  lda   #0
+                  sta   CurSlot
+                  jsr   ClearSlotRect
                   lda   Obj1X
                   sta   RX
                   lda   Obj1Y
@@ -109,6 +181,11 @@ DrawFrame         jsr   LatchCollisions
                   tay
                   lda   Obj1SprId
                   jsr   DrawSprite
+:d2               lda   ChgFlags+1
+                  beq   :d3
+                  lda   #1
+                  sta   CurSlot
+                  jsr   ClearSlotRect
                   lda   Obj2X
                   sta   RX
                   lda   Obj2Y
@@ -118,7 +195,13 @@ DrawFrame         jsr   LatchCollisions
                   tay
                   lda   Obj2SprId
                   jsr   DrawSprite
+:d3               lda   ChgFlags+2
+                  beq   :flip
+                  lda   #2
+                  sta   CurSlot
+                  jsr   ClearSlotRect
                   jsr   DrawBall
+:flip
 * flip
                   lda   DrawPage
                   beq   :show0
@@ -131,12 +214,149 @@ DrawFrame         jsr   LatchCollisions
                   sta   DrawPage
                   rts
 
+
+*-------------------------------------------------------------
+* What should be on screen this frame, per item.
+BuildNewSig       lda   Obj1SprId
+                  sta   NewSig
+                  lda   Obj1X
+                  sta   NewSig+1
+                  lda   Obj1Y
+                  sta   NewSig+2
+                  lda   Obj1Color
+                  sta   NewSig+3
+                  lda   Obj2SprId
+                  sta   NewSig+4
+                  lda   Obj2X
+                  sta   NewSig+5
+                  lda   Obj2Y
+                  sta   NewSig+6
+                  lda   Obj2Color
+                  sta   NewSig+7
+                  lda   #$fe                    ; the ball has no sprite id
+                  sta   NewSig+8
+                  lda   BallX
+                  sta   NewSig+9
+                  lda   BallY
+                  sta   NewSig+10
+                  lda   WallClass               ; the ball takes the wall colour
+                  sta   NewSig+11
+                  rts
+
+* ChgFlags[i] = nonzero if item i must be redrawn on this page
+MarkChanged       ldx   #0                      ; NewSig index
+                  ldy   SlotBase                ; SlotSig index
+                  lda   #0
+                  sta   RCnt                    ; item
+:item             lda   FullRedraw
+                  bne   :chg
+                  lda   NewSig,x
+                  cmp   SlotSig,y
+                  bne   :chg
+                  lda   NewSig+1,x
+                  cmp   SlotSig+1,y
+                  bne   :chg
+                  lda   NewSig+2,x
+                  cmp   SlotSig+2,y
+                  bne   :chg
+                  lda   NewSig+3,x
+                  cmp   SlotSig+3,y
+                  beq   :same
+:chg              lda   #1
+                  bne   :store
+:same             lda   #0
+:store            stx   T4
+                  ldx   RCnt
+                  sta   ChgFlags,x
+                  ldx   T4
+                  lda   NewSig,x                ; remember what we are about to draw
+                  sta   SlotSig,y
+                  lda   NewSig+1,x
+                  sta   SlotSig+1,y
+                  lda   NewSig+2,x
+                  sta   SlotSig+2,y
+                  lda   NewSig+3,x
+                  sta   SlotSig+3,y
+                  inx
+                  inx
+                  inx
+                  inx
+                  iny
+                  iny
+                  iny
+                  iny
+                  inc   RCnt
+                  lda   RCnt
+                  cmp   #3
+                  bne   :item
+                  rts
+
+* SlotRect for the item in CurSlot -> zero height (nothing drawn)
+ClearSlotRect     jsr   SlotRectIdx
+                  lda   #0
+                  sta   SlotRect+3,x
+                  rts
+
+* X = SlotBase + CurSlot*4
+SlotRectIdx       lda   CurSlot
+                  asl
+                  asl
+                  clc
+                  adc   SlotBase
+                  tax
+                  rts
+
+* remember the rectangle just drawn for CurSlot
+SetSlotRect       jsr   SlotRectIdx
+                  lda   RX
+                  clc
+                  adc   RW
+                  cmp   #41                     ; clip the rect to the line
+                  bcc   :fits
+                  lda   #40
+                  sec
+                  sbc   RX
+                  jmp   :w
+:fits             lda   RW
+:w                sta   SlotRect+1,x
+                  lda   RX
+                  sta   SlotRect,x
+                  lda   RLine
+                  sta   SlotRect+2,x
+                  lda   RRows
+                  sta   SlotRect+3,x
+                  rts
+
+* restore what the changed items covered on this page.  After a full
+* room redraw there is nothing to undo.
+EraseChanged      lda   FullRedraw
+                  bne   :done
+                  lda   #0
+                  sta   CurSlot
+:item             ldx   CurSlot
+                  lda   ChgFlags,x
+                  beq   :next
+                  jsr   SlotRectIdx
+                  lda   SlotRect+3,x
+                  beq   :next
+                  sta   RRows
+                  lda   SlotRect,x
+                  sta   RX
+                  lda   SlotRect+1,x
+                  sta   RW
+                  lda   SlotRect+2,x
+                  sta   RLine
+                  jsr   EraseRect
+:next             inc   CurSlot
+                  lda   CurSlot
+                  cmp   #3
+                  bne   :item
+:done             rts
+
 *-------------------------------------------------------------
 * Full room draw on the back page: build RoomBytes template then
 * fill all 192 lines.
 DrawRoom          ldx   DrawPage
-                  lda   #0
-                  sta   DirtyCnt,x
                   cpx   #0
                   beq   :sig0
                   ldx   #4
@@ -275,82 +495,49 @@ BuildTemplate     ldx   WallClass
                   rts
 
 *-------------------------------------------------------------
-* Restore the back page's dirty rects from the template
-EraseDirty        ldx   DrawPage
-                  lda   DirtyCnt,x
-                  beq   :done
-                  sta   RCnt
-                  txa
-                  asl
-                  asl
-                  asl
-                  asl                           ; page*16
-                  tax
-:rect             lda   DirtyList,x
-                  sta   RX
-                  lda   DirtyList+1,x
-                  sta   RW
-                  lda   DirtyList+2,x
-                  sta   RLine
-                  lda   DirtyList+3,x
-                  sta   RRows
-                  stx   T4
-:line             lda   RLine
-                  jsr   RowOfLine
-                  jsr   TemplateRow
-                  ldx   RLine
-                  lda   HgrLo,x
-                  sta   RP
-                  lda   HgrHi,x
+* Restore one rectangle (RX, RW, RLine, RRows) from the template.
+* Sprite rows are two lines each and template rows change only on
+* even lines, so lines can safely be restored in pairs.
+EraseRect         ldy   RLine
+                  lda   TmplLo,y
+                  sta   :e1+1
+                  lda   TmplHi,y
+                  sta   :e1+2
+                  lda   HgrLo,y
+                  sta   :e2+1
+                  lda   HgrHi,y
                   clc
                   adc   RPageHi
-                  sta   RP+1
-                  ldy   RX
-                  lda   RW
-                  sta   T5
-:byte             lda   (RTmpl),y
-                  sta   (RP),y
-                  iny
-                  dec   T5
-                  bne   :byte
-                  inc   RLine
+                  sta   :e2+2
                   dec   RRows
-                  bne   :line
-                  ldx   T4
-                  inx
-                  inx
-                  inx
-                  inx
-                  dec   RCnt
-                  bne   :rect
-:done             rts
-
-* record rect RX,RW,RLine(top),RRows(h) for the back page
-AddDirty          ldx   DrawPage
-                  lda   DirtyCnt,x
-                  cmp   #4
-                  bcs   :full
-                  inc   DirtyCnt,x
-                  asl
-                  asl
-                  sta   T5
-                  txa
-                  asl
-                  asl
-                  asl
-                  asl
+                  bne   :two                    ; odd line left over?
+                  jmp   :same
+:two              iny
+                  lda   HgrLo,y
+                  sta   :e3+1
+                  lda   HgrHi,y
                   clc
-                  adc   T5
-                  tax
-                  lda   RX
-                  sta   DirtyList,x
-                  lda   RW
-                  sta   DirtyList+1,x
-                  lda   RLine
-                  sta   DirtyList+2,x
+                  adc   RPageHi
+                  sta   :e3+2
+                  dec   RRows
+                  jmp   :go
+:same             lda   :e2+1                   ; store the same line twice
+                  sta   :e3+1
+                  lda   :e2+2
+                  sta   :e3+2
+:go               ldx   RX
+                  ldy   RW
+:e1               lda   RoomBytes,x
+:e2               sta   $2000,x
+:e3               sta   $2000,x
+                  inx
+                  dey
+                  bne   :e1
+                  inc   RLine
+                  inc   RLine
                   lda   RRows
-                  sta   DirtyList+3,x
-:full             rts
+                  bne   EraseRect
+                  rts
 
 *-------------------------------------------------------------
 * DrawSprite: A = sprite id, Y = color class, RX = clock x,
@@ -371,6 +558,10 @@ DrawSprite        sta   T3
                   sta   RMaskO
                   lda   ClassHi,y
                   sta   RHi
+                  lda   MaskTabL,y
+                  sta   BR2mask+1
+                  lda   MaskTabH,y
+                  sta   BR2mask+2
                   lda   SprHgrBpr,x
                   sta   RBpr
                   lda   SprHgrL,x
@@ -444,12 +635,18 @@ DrawSprite        sta   T3
 :fits2            sec
                   sbc   RLine
                   sta   RRows                   ; clipped line count
-                  jsr   AddDirty
-:row              jsr   BlitRow                 ; line RLine
+                  jsr   SetSlotRect
+:row              lda   RPrio
+                  bne   :slow
+                  jsr   BlitRow2                ; both lines in one pass
                   inc   RLine
-                  jsr   BlitRow                 ; line RLine (same data)
                   inc   RLine
-                  lda   RQ
+                  jmp   :adv
+:slow             jsr   BlitRow
+                  inc   RLine
+                  jsr   BlitRow
+                  inc   RLine
+:adv              lda   RQ
                   clc
                   adc   RBpr
                   sta   RQ
@@ -461,6 +658,49 @@ DrawSprite        sta   T3
                   bne   :row
 :below
 :skip             rts
+
+* Fast path: OR one sprite row into lines RLine and RLine+1.  The
+* colour mask table base at +22 and the two line addresses are
+* patched in, so the inner loop is four instructions per byte.
+* (No playfield priority here - see BlitRow for that.)
+BlitRow2          ldy   RLine
+                  lda   HgrLo,y
+                  sta   BR2a1+1
+                  sta   BR2a2+1
+                  lda   HgrHi,y
+                  clc
+                  adc   RPageHi
+                  sta   BR2a1+2
+                  sta   BR2a2+2
+                  iny
+                  lda   HgrLo,y
+                  sta   BR2b1+1
+                  sta   BR2b2+1
+                  lda   HgrHi,y
+                  clc
+                  adc   RPageHi
+                  sta   BR2b1+2
+                  sta   BR2b2+2
+                  ldy   #0
+                  ldx   RX
+BR2byte           lda   (RQ),y
+                  beq   BR2next
+BR2mask           and   MaskTab,x               ; base patched per colour class
+                  beq   BR2next
+                  ora   RHi
+                  sta   T5
+BR2a1             ora   $2000,x
+BR2a2             sta   $2000,x
+                  lda   T5
+BR2b1             ora   $2000,x
+BR2b2             sta   $2000,x
+BR2next           inx
+                  cpx   #40
+                  bcs   BR2done
+                  iny
+                  cpy   RBpr
+                  bne   BR2byte
+BR2done           rts
 
 * OR one sprite row (RBpr bytes at RQ) into line RLine at byte RX
 BlitRow           lda   RLine
@@ -550,7 +790,7 @@ DrawBall          ldy   WallClass
                   sta   RX
                   lda   #2
                   sta   RW
-                  jsr   AddDirty                ; clobbers X, so index it after
+                  jsr   SetSlotRect             ; clobbers X, so index it after
 * the two screen bytes are the same on every line: build them once
                   lda   RX
                   and   #1

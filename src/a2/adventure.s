@@ -46,6 +46,7 @@ BodyStart         =     *
 Main              cld
                   jsr   SetupVBL
                   jsr   HGRInit
+                  jsr   InitRender
                   jsr   StartGame               ; returns on Esc
                   jmp   Quit
 

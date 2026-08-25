@@ -65,8 +65,8 @@ MainGameLoop      jsr   CheckGameStart
                   jsr   WaitFrame
                   jsr   MoveBat
                   jsr   Portals
-                  jsr   DrawFrame
-                  jsr   MoveGreenDragon
+                  jsr   LatchCollisions          ; phase 1: latches only - the
+                  jsr   MoveGreenDragon          ; picture is unchanged since phase 0
                   jsr   MoveYellowDragon
                   jsr   WaitFrame
                   ldy   #2                      ; phase 2: horizontal only

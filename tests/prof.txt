@@ -1,0 +1,9 @@
+wait 420
+key r
+wait 60
+speed 1
+wait 60
+watch 00/002f 1
+wait 20
+watch off
+echo done
