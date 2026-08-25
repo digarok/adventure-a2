@@ -14,10 +14,10 @@ gs:
 	bash build_gs.sh
 
 run-a2: a2
-	$(GSPLUS) -config config_a2.kegs
+	bash tools/run.sh a2
 
 run-gs: gs
-	$(GSPLUS) -config config_gs.kegs
+	bash tools/run.sh gs
 
 clean:
 	rm -rf build src/*/*_Output.txt src/a2/adventure src/gs/adventure
