@@ -1,0 +1,25 @@
+wait 420
+key r
+wait 30
+hold left
+wait 48
+release
+hold up
+wait 36
+release
+mem 00/008a 4
+mem 00/00bf 4
+mem 00/00f0 9
+hold right
+wait 12
+mem 00/008a 4
+mem 00/00bf 4
+mem 00/00f0 9
+mem 00/0095 4
+wait 12
+mem 00/008a 4
+mem 00/00f0 9
+wait 12
+mem 00/008a 4
+release
+echo done

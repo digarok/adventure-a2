@@ -1,0 +1,31 @@
+wait 420
+key r
+wait 30
+hold left
+wait 48
+release
+hold up
+wait 36
+release
+mem 00/009d 2
+hold down
+wait 45
+release
+mem 00/008a 4
+hold right
+wait 48
+release
+mem 00/008a 4
+hold up
+wait 120
+release
+mem 00/008a 4
+mem 00/00c8 4
+shot 41-gate.png
+wait 300
+mem 00/0080 4
+mem 00/008a 4
+mem 00/60fb 8
+mem 00/00c8 4
+shot 42-inside.png
+echo done

@@ -7,8 +7,10 @@
 * the room template), redrawn, then flipped.
 *-------------------------------------------------------------
 * per-page state
-DrawnRoom         db    $ff,$ff                 ; room drawn on page 0/1
-DrawnClass        db    $ff,$ff                 ; wall color class drawn
+* signature of the template on each page: gfx ptr lo/hi, wall class, ctrl.
+* Keyed on the graphics pointer, not the room number: Portals can change
+* the room after the last SetupRoomPrint, so the number alone lies.
+DrawnSig          db    $ff,$ff,$ff,$ff, $ff,$ff,$ff,$ff
 DirtyCnt          db    0,0
 DirtyList         ds    2*4*4                   ; page: 4 rects of x,w,top,h
 DrawPage          db    0                       ; page being drawn (back page)
@@ -78,10 +80,19 @@ DrawFrame         jsr   LatchCollisions
 :ov               jsr   ColorClass
                   sta   WallClass
                   ldx   DrawPage                ; ColorClass clobbers X
-                  cmp   DrawnClass,x
+                  beq   :sig0
+                  ldx   #4
+:sig0             lda   RoomGfxPtr
+                  cmp   DrawnSig,x
                   bne   :full
-                  lda   BallRoom
-                  cmp   DrawnRoom,x
+                  lda   RoomGfxPtr+1
+                  cmp   DrawnSig+1,x
+                  bne   :full
+                  lda   WallClass
+                  cmp   DrawnSig+2,x
+                  bne   :full
+                  lda   RoomCtrl
+                  cmp   DrawnSig+3,x
                   bne   :full
                   jsr   EraseDirty
                   jmp   :objects
@@ -124,12 +135,19 @@ DrawFrame         jsr   LatchCollisions
 * Full room draw on the back page: build RoomBytes template then
 * fill all 192 lines.
 DrawRoom          ldx   DrawPage
-                  lda   BallRoom
-                  sta   DrawnRoom,x
-                  lda   WallClass
-                  sta   DrawnClass,x
                   lda   #0
                   sta   DirtyCnt,x
+                  cpx   #0
+                  beq   :sig0
+                  ldx   #4
+:sig0             lda   RoomGfxPtr
+                  sta   DrawnSig,x
+                  lda   RoomGfxPtr+1
+                  sta   DrawnSig+1,x
+                  lda   WallClass
+                  sta   DrawnSig+2,x
+                  lda   RoomCtrl
+                  sta   DrawnSig+3,x
                   jsr   BuildTemplate
                   lda   #0
                   sta   RLine
