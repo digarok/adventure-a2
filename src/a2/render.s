@@ -517,9 +517,22 @@ BlitRow           lda   RLine
 :done             rts
 
 *-------------------------------------------------------------
-* The ball: 4 clocks x 4 counts = 7 px x 8 lines, white
+* The ball: 4 clocks x 4 counts = 7 px x 8 lines.  The 2600 drew
+* it with COLUPF, so it takes the room's wall colour - which is
+* what makes the man invisible in the catacombs.
 BallPat           db    $7f,$00, $7c,$03, $70,$0f, $40,$3f
-DrawBall          lda   BallY
+BallB1            db    0
+BallB2            db    0
+DrawBall          ldy   WallClass
+                  bne   :vis                    ; invisible room
+                  rts
+:vis              lda   ClassMaskE,y
+                  ora   ClassHi,y
+                  sta   RMaskE
+                  lda   ClassMaskO,y
+                  ora   ClassHi,y
+                  sta   RMaskO
+                  lda   BallY
                   beq   :skip
                   lda   #105
                   sec
@@ -538,10 +551,29 @@ DrawBall          lda   BallY
                   lda   #2
                   sta   RW
                   jsr   AddDirty                ; clobbers X, so index it after
+* the two screen bytes are the same on every line: build them once
+                  lda   RX
+                  and   #1
+                  bne   :odd
+                  lda   RMaskE
+                  ldy   RMaskO
+                  jmp   :mk
+:odd              lda   RMaskO
+                  ldy   RMaskE
+:mk               sta   RDx                     ; mask for byte RX
+                  sty   RCnt                    ; mask for byte RX+1
                   lda   BallX
                   and   #3
                   asl
-                  tax                           ; pattern index
+                  tax
+                  lda   BallPat,x
+                  ldy   RDx
+                  jsr   BallByte
+                  sta   BallB1
+                  lda   BallPat+1,x
+                  ldy   RCnt
+                  jsr   BallByte
+                  sta   BallB2
 :line             ldy   RLine
                   cpy   #192
                   bcs   :skip
@@ -553,15 +585,26 @@ DrawBall          lda   BallY
                   sta   RP+1
                   ldy   RX
                   lda   (RP),y
-                  ora   BallPat,x
+                  ora   BallB1
                   sta   (RP),y
                   iny
                   cpy   #40
                   bcs   :n
                   lda   (RP),y
-                  ora   BallPat+1,x
+                  ora   BallB2
                   sta   (RP),y
 :n                inc   RLine
                   dec   RRows
                   bne   :line
 :skip             rts
+
+* A = 1-bit pattern, Y = colour mask (hi bit included) -> A = byte
+BallByte          sty   T4
+                  and   T4
+                  and   #$7f
+                  beq   :zero
+                  sta   T5
+                  lda   T4
+                  and   #$80
+                  ora   T5
+:zero             rts

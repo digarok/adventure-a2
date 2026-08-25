@@ -1,0 +1,378 @@
+wait 420
+key r
+wait 30
+hold left
+wait 19
+release
+hold right
+wait 51
+release
+hold up
+wait 14
+release
+hold up
+wait 33
+release
+hold up
+wait 42
+release
+hold down
+wait 12
+release
+hold up
+wait 37
+release
+hold right
+wait 14
+release
+hold down
+wait 15
+release
+hold right
+wait 13
+release
+hold up
+wait 24
+release
+hold up
+wait 46
+release
+hold right
+wait 13
+release
+hold down
+wait 12
+release
+hold down
+wait 28
+release
+hold right
+wait 19
+release
+hold up
+wait 46
+release
+hold left
+wait 45
+release
+hold down
+wait 16
+release
+hold down
+wait 33
+release
+mem 00/008a 4
+shot walk-00.png
+hold up
+wait 45
+release
+hold up
+wait 46
+release
+hold up
+wait 49
+release
+hold down
+wait 41
+release
+hold right
+wait 59
+release
+hold left
+wait 39
+release
+hold right
+wait 33
+release
+hold left
+wait 25
+release
+hold down
+wait 54
+release
+hold down
+wait 15
+release
+hold left
+wait 43
+release
+hold right
+wait 31
+release
+hold right
+wait 28
+release
+hold up
+wait 17
+release
+hold right
+wait 20
+release
+hold left
+wait 19
+release
+hold right
+wait 36
+release
+hold up
+wait 52
+release
+hold up
+wait 58
+release
+hold left
+wait 31
+release
+mem 00/008a 4
+shot walk-01.png
+hold left
+wait 48
+release
+hold right
+wait 47
+release
+hold right
+wait 14
+release
+hold up
+wait 27
+release
+hold right
+wait 54
+release
+hold up
+wait 13
+release
+hold left
+wait 51
+release
+hold right
+wait 28
+release
+hold right
+wait 52
+release
+hold left
+wait 11
+release
+hold right
+wait 32
+release
+hold down
+wait 49
+release
+hold up
+wait 41
+release
+hold up
+wait 23
+release
+hold left
+wait 18
+release
+hold down
+wait 35
+release
+hold right
+wait 41
+release
+hold up
+wait 20
+release
+hold right
+wait 35
+release
+hold left
+wait 18
+release
+mem 00/008a 4
+shot walk-02.png
+hold right
+wait 45
+release
+hold left
+wait 55
+release
+hold right
+wait 32
+release
+hold right
+wait 24
+release
+hold down
+wait 15
+release
+hold down
+wait 19
+release
+hold down
+wait 52
+release
+hold down
+wait 10
+release
+hold right
+wait 47
+release
+hold down
+wait 26
+release
+hold left
+wait 10
+release
+hold down
+wait 36
+release
+hold left
+wait 49
+release
+hold left
+wait 18
+release
+hold up
+wait 39
+release
+hold right
+wait 35
+release
+hold right
+wait 35
+release
+hold up
+wait 40
+release
+hold right
+wait 13
+release
+hold down
+wait 14
+release
+mem 00/008a 4
+shot walk-03.png
+hold down
+wait 38
+release
+hold down
+wait 17
+release
+hold left
+wait 48
+release
+hold up
+wait 16
+release
+hold up
+wait 46
+release
+hold down
+wait 44
+release
+hold up
+wait 33
+release
+hold up
+wait 14
+release
+hold down
+wait 49
+release
+hold right
+wait 19
+release
+hold left
+wait 32
+release
+hold left
+wait 40
+release
+hold up
+wait 17
+release
+hold right
+wait 39
+release
+hold right
+wait 40
+release
+hold left
+wait 15
+release
+hold down
+wait 16
+release
+hold left
+wait 57
+release
+hold left
+wait 40
+release
+hold down
+wait 43
+release
+mem 00/008a 4
+shot walk-04.png
+hold up
+wait 23
+release
+hold left
+wait 19
+release
+hold up
+wait 58
+release
+hold left
+wait 51
+release
+hold up
+wait 54
+release
+hold left
+wait 43
+release
+hold left
+wait 20
+release
+hold left
+wait 59
+release
+hold down
+wait 44
+release
+hold left
+wait 50
+release
+hold down
+wait 49
+release
+hold down
+wait 25
+release
+hold right
+wait 57
+release
+hold down
+wait 22
+release
+hold right
+wait 32
+release
+hold up
+wait 11
+release
+hold left
+wait 40
+release
+hold left
+wait 22
+release
+hold left
+wait 38
+release
+hold left
+wait 33
+release
+mem 00/008a 4
+shot walk-05.png
+mem 00/0080 20
+mem 00/00a0 40
+echo done
