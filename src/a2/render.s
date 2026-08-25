@@ -218,36 +218,27 @@ DrawFrame         jsr   LatchCollisions
 * forward - and note which may be drawn edge-only.
 MeasureItems      lda   #0
                   sta   CurSlot
-:item             jsr   SlotRectIdx             ; X = SlotBase + CurSlot*4
+:item             ldy   CurSlot
+                  lda   #0
+                  sta   SolidSlot,y
                   lda   CurSlot
                   asl
                   asl
-                  tay
-                  lda   SlotRect,x
-                  sta   NewRect,y
-                  lda   SlotRect+1,x
-                  sta   NewRect+1,y
-                  lda   SlotRect+2,x
-                  sta   NewRect+2,y
-                  lda   SlotRect+3,x
-                  sta   NewRect+3,y
+                  tax
                   lda   #0
-                  ldy   CurSlot
-                  sta   SolidSlot,y
+                  sta   NewRect+3,x
                   lda   ChgFlags,y
                   beq   :next
                   lda   CurSlot
                   cmp   #2                      ; the ball is never "solid"
-                  beq   :meas
-                  asl
-                  asl
-                  tax
+                  beq   :next
                   lda   NewSig,x
                   tay
                   lda   SprSolid,y
+                  beq   :next
                   ldy   CurSlot
                   sta   SolidSlot,y
-:meas             jsr   DrawItem
+                  jsr   DrawItem                ; MeasureOnly: fills NewRect
 :next             inc   CurSlot
                   lda   CurSlot
                   cmp   #3
@@ -256,12 +247,21 @@ MeasureItems      lda   #0
 
 * Two items that overlap have to be redrawn together, and drawn whole:
 * the edge-only shortcut assumes the overlap still holds good pixels.
-SpreadChanges     jsr   BuildUnions
+SpreadChanges     lda   ChgFlags                ; nothing to spread if every
+                  and   ChgFlags+1              ; item is being redrawn and
+                  and   ChgFlags+2              ; none of them is solid
+                  beq   :work
+                  lda   SolidSlot
+                  ora   SolidSlot+1
+                  ora   SolidSlot+2
+                  bne   :work
+                  rts
+:work             jsr   BuildUnions
                   ldx   #2                      ; settle over three items
 :pass             stx   T3
-                  ldy   #0                      ; pair 0-1
+                  ldy   #0                      ; pairs 0-1, 0-2, 1-2
                   jsr   PairCheck
-                  ldy   #1                      ; pair 0-2 / 1-2
+                  ldy   #1
                   jsr   PairCheck
                   ldy   #2
                   jsr   PairCheck
@@ -320,7 +320,9 @@ PairCheck         lda   PairTabA,y
                   sta   SolidSlot,x
                   rts
 
-* UnionRect = the bounding box of SlotRect and NewRect for each item
+* What each item covers: the rectangle it is on screen with now, plus
+* where a solid item is about to move to (its erase is edge-only, so its
+* new position has to count as well).
 BuildUnions       lda   #0
                   sta   CurSlot
 :item             jsr   SlotRectIdx
@@ -328,26 +330,25 @@ BuildUnions       lda   #0
                   asl
                   asl
                   tay
-                  lda   SlotRect+3,x
-                  bne   :haveold
-                  lda   NewRect,y               ; nothing was there: use the new one
-                  sta   UnionRect,y
-                  lda   NewRect+1,y
-                  sta   UnionRect+1,y
-                  lda   NewRect+2,y
-                  sta   UnionRect+2,y
-                  lda   NewRect+3,y
-                  sta   UnionRect+3,y
-                  jmp   :next
-:haveold          lda   NewRect+3,y
-                  bne   :both
-                  lda   SlotRect,x              ; nothing new: use the old one
+                  lda   SlotRect,x
                   sta   UnionRect,y
                   lda   SlotRect+1,x
                   sta   UnionRect+1,y
                   lda   SlotRect+2,x
                   sta   UnionRect+2,y
                   lda   SlotRect+3,x
+                  sta   UnionRect+3,y
+                  lda   NewRect+3,y             ; solid items only
+                  beq   :next
+                  lda   SlotRect+3,x
+                  bne   :both
+                  lda   NewRect,y               ; nothing was there before
+                  sta   UnionRect,y
+                  lda   NewRect+1,y
+                  sta   UnionRect+1,y
+                  lda   NewRect+2,y
+                  sta   UnionRect+2,y
+                  lda   NewRect+3,y
                   sta   UnionRect+3,y
                   jmp   :next
 :both             lda   SlotRect,x              ; left edge
@@ -1055,26 +1056,19 @@ EraseRect         ldy   RLine
                   sta   :e1+2
                   lda   HgrLo,y
                   sta   :e2+1
-                  lda   HgrHi,y
+                  sta   :e3+1                   ; the next line is the same
+                  lda   HgrHi,y                 ; byte, one $400 block lower
                   clc
                   adc   RPageHi
                   sta   :e2+2
                   dec   RRows
                   bne   :two                    ; odd line left over?
-                  jmp   :same
-:two              iny
-                  lda   HgrLo,y
-                  sta   :e3+1
-                  lda   HgrHi,y
-                  clc
-                  adc   RPageHi
+                  sta   :e3+2                   ; store the same line twice
+                  jmp   :go
+:two              clc
+                  adc   #4
                   sta   :e3+2
                   dec   RRows
-                  jmp   :go
-:same             lda   :e2+1                   ; store the same line twice
-                  sta   :e3+1
-                  lda   :e2+2
-                  sta   :e3+2
 :go               ldx   RX
                   ldy   RW
 :e1               lda   RoomBytes,x
@@ -1232,27 +1226,31 @@ DrawSprite        sta   T3
 * colour mask table base at +22 and the two line addresses are
 * patched in, so the inner loop is four instructions per byte.
 * (No playfield priority here - see BlitRow for that.)
-BlitRow2          ldy   RLine
+BlitRow2          lda   RQ
+                  sec
+                  sbc   RX
+                  sta   BR2src+1
+                  lda   RQ+1
+                  sbc   #0
+                  sta   BR2src+2
+                  ldy   RLine
                   lda   HgrLo,y
                   sta   BR2a1+1
                   sta   BR2a2+1
-                  lda   HgrHi,y
-                  clc
-                  adc   RPageHi
-                  sta   BR2a1+2
-                  sta   BR2a2+2
-                  iny
-                  lda   HgrLo,y
                   sta   BR2b1+1
                   sta   BR2b2+1
                   lda   HgrHi,y
                   clc
                   adc   RPageHi
+                  sta   BR2a1+2
+                  sta   BR2a2+2
+                  clc
+                  adc   #4                      ; line+1 is one $400 lower
                   sta   BR2b1+2
                   sta   BR2b2+2
-                  ldy   #0
                   ldx   RX
-BR2byte           lda   (RQ),y
+BR2byte           
+BR2src            lda   HGfxNull,x              ; base patched to RQ-RX
                   beq   BR2next
 BR2mask           and   MaskTab,x               ; base patched per colour class
                   beq   BR2next
@@ -1264,12 +1262,9 @@ BR2a2             sta   $2000,x
 BR2b1             ora   $2000,x
 BR2b2             sta   $2000,x
 BR2next           inx
-                  cpx   #40
-                  bcs   BR2done
-                  iny
-                  cpy   RBpr
+                  cpx   RXEnd
                   bne   BR2byte
-BR2done           rts
+                  rts
 
 * Same, for rooms where the playfield is in front of the sprites
 * (CTRLPF bit 2).  That is how the invisible surround reveals the
@@ -1295,16 +1290,13 @@ BlitRow3          lda   RQ
                   sta   BR3op+2
                   lda   HgrLo,y
                   sta   BR3a+1
+                  sta   BR3b+1                  ; line+1 is one $400 lower
                   lda   HgrHi,y
                   clc
                   adc   RPageHi
                   sta   BR3a+2
-                  iny
-                  lda   HgrLo,y
-                  sta   BR3b+1
-                  lda   HgrHi,y
                   clc
-                  adc   RPageHi
+                  adc   #4
                   sta   BR3b+2
                   ldx   RX
 BR3byte           
@@ -1323,10 +1315,11 @@ BR3next           inx
                   rts
 
 *-------------------------------------------------------------
-* The ball: 4 clocks x 4 counts = 7 px x 8 lines.  The 2600 drew
+* The ball: 4 clocks x 4 counts, which is exactly one 7-pixel byte
+* by 8 lines - offset within the byte by the clock phase.  The 2600 drew
 * it with COLUPF, so it takes the room's wall colour - which is
 * what makes the man invisible in the catacombs.
-BallPat           db    $7f,$00, $7c,$03, $70,$0f, $40,$3f
+BallPat           db    $7f,$00, $7e,$01, $78,$07, $60,$1f
 BallB1            db    0
 BallB2            db    0
 DrawBall          ldy   NewSig+11

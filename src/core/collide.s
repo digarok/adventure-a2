@@ -192,8 +192,34 @@ PixelAt           sta   CkT
                   lda   #0
                   rts
 
-* X = descriptor offset -> A nonzero if the ball overlaps that object
-BallVsObj         ldy   #4
+* X = descriptor offset -> A nonzero if the ball overlaps that object.
+* Reject on the bounding boxes first - per-pixel work here is 16 PixelAt
+* calls, and most frames nothing is anywhere near the ball.
+BallVsObj         ldy   DescA+2,x
+                  lda   SprHeight,y
+                  beq   :miss
+                  lda   BallX
+                  clc
+                  adc   #4
+                  cmp   DescA,x                 ; ball wholly to the left?
+                  bcc   :miss
+                  jsr   ObjRight
+                  cmp   BallX                   ; object wholly to the left?
+                  beq   :miss
+                  bcc   :miss
+                  lda   BallY
+                  sec
+                  sbc   #4
+                  cmp   DescA+1,x               ; ball wholly above?
+                  bcs   :miss
+                  jsr   ObjBottom
+                  cmp   BallY                   ; object wholly above?
+                  bcc   :test
+                  lda   #0
+                  rts
+:miss             lda   #0
+                  rts
+:test             ldy   #4
 :row              sty   T3
                   lda   BallY
                   sec

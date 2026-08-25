@@ -58,21 +58,26 @@ for s in SPRITES:
 open(os.path.join(ROOT, 'src/core/gfx2600.s'), 'w').write('\n'.join(out) + '\n')
 
 # ------------------------------------------------------------ gfxhgr.s
-# Row of a normal sprite: bit7 = leftmost clock, each clock = 2 HGR px.
-# Quad sprite: each bit = 4 clocks = 7 px.  Phase p shifts by 2p px.
-# HGR byte: bit0 = leftmost px, bit7 unused (color hi-bit added at blit).
+# One colour clock is 4/7 of an HGR byte, so a sprite bit is 1.75 px and
+# eight of them are 14 px - the same scale as the playfield, where one
+# playfield pixel (4 clocks) is exactly one 7-pixel byte.  Pixel p of a
+# row therefore belongs to clock p*4/7.  A quad bit is 4 clocks = 7 px.
+# Clock x starts at pixel 7x/4, i.e. byte x/4 offset PHASEPX[x&3].
+# HGR byte: bit0 = leftmost px, bit7 unused (colour hi-bit added at blit).
+PHASEPX = [0, 1, 3, 5]
 def hgr_row(bits, quad, phase):
-    px = []
-    for b in range(8):
-        on = (bits >> (7 - b)) & 1
-        px += [on] * (7 if quad else 2)
-    px = [0] * (2 * phase) + px
-    nbytes = 8 if quad else 4
+    bit = lambda b: (bits >> (7 - b)) & 1
+    if quad:
+        px = [bit(b) for b in range(8) for _ in range(7)]
+    else:
+        px = [bit((p * 4) // 7) for p in range(14)]
+    px = [0] * PHASEPX[phase] + px
+    nbytes = 8 if quad else 3
     px += [0] * (nbytes * 7 - len(px))
     return [sum(px[i*7 + k] << k for k in range(7)) for i in range(nbytes)]
 
 out = [HDR, '* layout per sprite: rows*bpr bytes for phase 0, then phase 1,2,3']
-out.append('SprHgrBpr         db    ' + ','.join('8' if s in QUAD else '4' for s in SPRITES))
+out.append('SprHgrBpr         db    ' + ','.join('8' if s in QUAD else '3' for s in SPRITES))
 # A sprite whose every row is solid draws the same pixels wherever it is,
 # so when it only shifts a little the renderer can repaint just the edges.
 out.append('SprSolid          db    ' + ','.join(
