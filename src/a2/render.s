@@ -20,6 +20,8 @@ SlotRect          ds    2*3*4                   ; x, w, top line, lines
 NewSig            ds    3*4
 NewRect           ds    3*4                     ; measured rect, before drawing
 OldRect           ds    3*4                     ; what this page had before
+UnionRect         ds    3*4                     ; old and new together
+SolidSlot         ds    3                       ; item may be drawn edge-only
 MeasureOnly       db    0
 ItemSpr           db    0
 ChgFlags          ds    3
@@ -51,6 +53,8 @@ RMaskO            equ   $3c                     ; color mask, odd byte
 RHi               equ   $3d                     ; hi bit
 RPageHi           equ   $3e                     ; $00 or $20 added to HgrHi
 RXEnd             equ   $45                     ; one past the last screen byte
+RA                equ   $46                     ; rectangle scratch: x, w, top, h
+RB                equ   $4a
 RPrio             equ   $3f                     ; nonzero: walls over sprites
 RCnt              equ   $40
 RBpr              equ   $41
@@ -182,14 +186,14 @@ DrawFrame         jsr   LatchCollisions
                   sta   SceneTick
                   jsr   BuildNewSig
 :snapped          jsr   MarkChanged
-* Measure where the solid items are going first: a solid sprite paints
-* the same pixels wherever it sits, so when it has only shifted a little
-* the overlap is already right and just the edges need doing.
+* Work out where the changed items are going before touching the screen:
+* undoing one of them must not eat into another that is staying put.
                   lda   #1
                   sta   MeasureOnly
-                  jsr   DrawItems
+                  jsr   MeasureItems
                   lda   #0
                   sta   MeasureOnly
+                  jsr   SpreadChanges
                   jsr   EraseChanged
                   jsr   DrawItems
 :flip
@@ -209,40 +213,247 @@ DrawFrame         jsr   LatchCollisions
 *-------------------------------------------------------------
 * Walk the three items (object 1, object 2, ball), drawing - or, in the
 * measure pass, only working out the rectangle of - the changed ones.
+* Fill NewRect for every item - the changed ones by running their draw
+* with MeasureOnly set, the rest by carrying their current rectangle
+* forward - and note which may be drawn edge-only.
+MeasureItems      lda   #0
+                  sta   CurSlot
+:item             jsr   SlotRectIdx             ; X = SlotBase + CurSlot*4
+                  lda   CurSlot
+                  asl
+                  asl
+                  tay
+                  lda   SlotRect,x
+                  sta   NewRect,y
+                  lda   SlotRect+1,x
+                  sta   NewRect+1,y
+                  lda   SlotRect+2,x
+                  sta   NewRect+2,y
+                  lda   SlotRect+3,x
+                  sta   NewRect+3,y
+                  lda   #0
+                  ldy   CurSlot
+                  sta   SolidSlot,y
+                  lda   ChgFlags,y
+                  beq   :next
+                  lda   CurSlot
+                  cmp   #2                      ; the ball is never "solid"
+                  beq   :meas
+                  asl
+                  asl
+                  tax
+                  lda   NewSig,x
+                  tay
+                  lda   SprSolid,y
+                  ldy   CurSlot
+                  sta   SolidSlot,y
+:meas             jsr   DrawItem
+:next             inc   CurSlot
+                  lda   CurSlot
+                  cmp   #3
+                  bne   :item
+                  rts
+
+* Two items that overlap have to be redrawn together, and drawn whole:
+* the edge-only shortcut assumes the overlap still holds good pixels.
+SpreadChanges     jsr   BuildUnions
+                  ldx   #2                      ; settle over three items
+:pass             stx   T3
+                  ldy   #0                      ; pair 0-1
+                  jsr   PairCheck
+                  ldy   #1                      ; pair 0-2 / 1-2
+                  jsr   PairCheck
+                  ldy   #2
+                  jsr   PairCheck
+                  ldx   T3
+                  dex
+                  bne   :pass
+                  rts
+
+PairTabA          db    0,0,1
+PairTabB          db    1,2,2
+* Y = pair number
+PairCheck         lda   PairTabA,y
+                  sta   T0
+                  lda   PairTabB,y
+                  sta   T1
+                  ldx   T0
+                  lda   ChgFlags,x
+                  ldx   T1
+                  ora   ChgFlags,x
+                  bne   :any
+                  rts                           ; neither is being redrawn
+:any              lda   T0
+                  asl
+                  asl
+                  tax
+                  ldy   #0
+:cpa              lda   UnionRect,x
+                  sta   RA,y
+                  inx
+                  iny
+                  cpy   #4
+                  bne   :cpa
+                  lda   T1
+                  asl
+                  asl
+                  tax
+                  ldy   #0
+:cpb              lda   UnionRect,x
+                  sta   RB,y
+                  inx
+                  iny
+                  cpy   #4
+                  bne   :cpb
+                  jsr   RectOverlap
+                  bcs   :hit
+                  rts
+:hit              lda   #1
+                  ldx   T0
+                  sta   ChgFlags,x
+                  lda   #0
+                  sta   SolidSlot,x
+                  lda   #1
+                  ldx   T1
+                  sta   ChgFlags,x
+                  lda   #0
+                  sta   SolidSlot,x
+                  rts
+
+* UnionRect = the bounding box of SlotRect and NewRect for each item
+BuildUnions       lda   #0
+                  sta   CurSlot
+:item             jsr   SlotRectIdx
+                  lda   CurSlot
+                  asl
+                  asl
+                  tay
+                  lda   SlotRect+3,x
+                  bne   :haveold
+                  lda   NewRect,y               ; nothing was there: use the new one
+                  sta   UnionRect,y
+                  lda   NewRect+1,y
+                  sta   UnionRect+1,y
+                  lda   NewRect+2,y
+                  sta   UnionRect+2,y
+                  lda   NewRect+3,y
+                  sta   UnionRect+3,y
+                  jmp   :next
+:haveold          lda   NewRect+3,y
+                  bne   :both
+                  lda   SlotRect,x              ; nothing new: use the old one
+                  sta   UnionRect,y
+                  lda   SlotRect+1,x
+                  sta   UnionRect+1,y
+                  lda   SlotRect+2,x
+                  sta   UnionRect+2,y
+                  lda   SlotRect+3,x
+                  sta   UnionRect+3,y
+                  jmp   :next
+:both             lda   SlotRect,x              ; left edge
+                  cmp   NewRect,y
+                  bcc   :lx
+                  lda   NewRect,y
+:lx               sta   UnionRect,y
+                  lda   SlotRect,x              ; right edge
+                  clc
+                  adc   SlotRect+1,x
+                  sta   T4
+                  lda   NewRect,y
+                  clc
+                  adc   NewRect+1,y
+                  cmp   T4
+                  bcs   :rx
+                  lda   T4
+:rx               sec
+                  sbc   UnionRect,y
+                  sta   UnionRect+1,y
+                  lda   SlotRect+2,x            ; top edge
+                  cmp   NewRect+2,y
+                  bcc   :ty
+                  lda   NewRect+2,y
+:ty               sta   UnionRect+2,y
+                  lda   SlotRect+2,x            ; bottom edge
+                  clc
+                  adc   SlotRect+3,x
+                  sta   T4
+                  lda   NewRect+2,y
+                  clc
+                  adc   NewRect+3,y
+                  cmp   T4
+                  bcs   :by
+                  lda   T4
+:by               sec
+                  sbc   UnionRect+2,y
+                  sta   UnionRect+3,y
+:next             inc   CurSlot
+                  lda   CurSlot
+                  cmp   #3
+                  beq   :done
+                  jmp   :item
+:done             rts
+
+* rectangles RA and RB (x, w, top, h) -> carry set if they overlap
+RectOverlap       lda   RA+3
+                  beq   :no
+                  lda   RB+3
+                  beq   :no
+                  lda   RA
+                  sec
+                  sbc   RB
+                  bcs   :ax
+                  lda   RB                      ; RA is to the left
+                  sec
+                  sbc   RA
+                  cmp   RA+1
+                  bcs   :no
+                  jmp   :y
+:ax               cmp   RB+1
+                  bcs   :no
+:y                lda   RA+2
+                  sec
+                  sbc   RB+2
+                  bcs   :ay
+                  lda   RB+2                    ; RA is above
+                  sec
+                  sbc   RA+2
+                  cmp   RA+3
+                  bcs   :no
+                  sec
+                  rts
+:ay               cmp   RB+3
+                  bcs   :no
+                  sec
+                  rts
+:no               clc
+                  rts
+
+*-------------------------------------------------------------
 DrawItems         lda   #0
                   sta   CurSlot
 :item             ldx   CurSlot
                   lda   ChgFlags,x
                   beq   :next
+                  jsr   ClearSlotRect
+                  jsr   DrawItem
+:next             inc   CurSlot
                   lda   CurSlot
+                  cmp   #3
+                  bne   :item
+                  rts
+
+* draw (or, with MeasureOnly, just measure) the item in CurSlot
+DrawItem          lda   CurSlot
                   asl
                   asl
                   tax
                   lda   NewSig,x
                   sta   ItemSpr
-                  lda   MeasureOnly
-                  beq   :draw
-                  lda   CurSlot                 ; measuring: solid sprites only
-                  cmp   #2
-                  beq   :nomeas                 ; (the ball is not one)
-                  ldy   ItemSpr
-                  lda   SprSolid,y
-                  bne   :draw
-:nomeas
-                  lda   #0
-                  sta   NewRect+3,x
-                  beq   :next
-:draw             lda   MeasureOnly
-                  bne   :go
-                  jsr   ClearSlotRect
                   lda   CurSlot
-                  asl
-                  asl
-                  tax
-:go               lda   CurSlot
                   cmp   #2
-                  beq   :ball
-                  lda   NewSig+1,x
+                  bne   :obj
+                  jmp   DrawBall
+:obj              lda   NewSig+1,x
                   sta   RX
                   lda   NewSig+2,x
                   sta   RLine
@@ -250,14 +461,7 @@ DrawItems         lda   #0
                   jsr   ObjColorClass
                   tay
                   lda   ItemSpr
-                  jsr   DrawSprite
-                  jmp   :next
-:ball             jsr   DrawBall
-:next             inc   CurSlot
-                  lda   CurSlot
-                  cmp   #3
-                  bne   :item
-                  rts
+                  jmp   DrawSprite
 
 *-------------------------------------------------------------
 * What should be on screen this frame, per item.
@@ -436,10 +640,18 @@ EraseOld          jsr   SlotRectIdx
                   asl
                   asl
                   tay
-                  lda   NewRect+3,y             ; measured? (solid items only)
+                  ldy   CurSlot                 ; edge-only erase is for solid
+                  lda   SolidSlot,y             ; items that have only shifted
                   bne   :meas
                   jmp   EraseRect
-:meas             lda   NewRect+1,y
+:meas             lda   CurSlot
+                  asl
+                  asl
+                  tay
+                  lda   NewRect+3,y
+                  bne   :meas2
+                  jmp   EraseRect
+:meas2            lda   NewRect+1,y
                   cmp   RW
                   beq   :samew
                   jmp   EraseRect
@@ -991,8 +1203,8 @@ DrawSprite        sta   T3
                   lda   MeasureOnly
                   beq   :solid
                   rts
-:solid            ldx   ItemSpr
-                  lda   SprSolid,x
+:solid            ldx   CurSlot
+                  lda   SolidSlot,x
                   beq   :row
                   jsr   RestrictDraw            ; only the edges have changed
                   bcs   :below

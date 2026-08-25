@@ -1,0 +1,84 @@
+wait 420
+key r
+wait 60
+00/008a:01 55 37
+00/00e2:01 55 37
+00/00a9:01 40 40 ff 01
+00/00bf:01 41 37
+00/009d:63
+00/009e:ec 00
+wait 20
+shot p0.png
+hold right
+wait 8
+release
+wait 4
+hold left
+wait 8
+release
+wait 4
+hold right
+wait 8
+release
+wait 4
+hold left
+wait 8
+release
+wait 4
+hold right
+wait 8
+release
+wait 4
+hold left
+wait 8
+release
+wait 4
+hold right
+wait 8
+release
+wait 4
+hold left
+wait 8
+release
+wait 4
+hold right
+wait 8
+release
+wait 4
+hold left
+wait 8
+release
+wait 4
+hold right
+wait 8
+release
+wait 4
+hold left
+wait 8
+release
+wait 4
+hold right
+wait 8
+release
+wait 4
+hold left
+wait 8
+release
+wait 4
+hold right
+wait 8
+release
+wait 4
+hold left
+wait 8
+release
+wait 4
+wait 10
+shot p-incremental.png
+00/60fe:ff ff ff ff ff ff ff ff
+wait 8
+shot p-full.png
+mem 00/008a 4
+mem 00/00bf 4
+mem 00/00a9 6
+echo done
