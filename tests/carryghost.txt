@@ -1,4 +1,6 @@
 wait 420
+wait 1
+wait 60
 key r
 wait 60
 00/008a:01 55 37
@@ -8,7 +10,6 @@ wait 60
 00/009d:63
 00/009e:ec 00
 wait 20
-shot p0.png
 hold right
 wait 8
 release
@@ -74,11 +75,7 @@ wait 8
 release
 wait 4
 wait 10
-shot p-incremental.png
-00/60fe:ff ff ff ff ff ff ff ff
+FORCEREDRAW
 wait 8
-shot p-full.png
-mem 00/008a 4
-mem 00/00bf 4
-mem 00/00a9 6
+shot ghost.png
 echo done

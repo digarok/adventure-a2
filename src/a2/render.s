@@ -1281,7 +1281,10 @@ DrawSprite        sta   T3
                   lda   RX
                   lsr
                   lsr
-                  sta   RX                      ; byte x
+                  cmp   #40                     ; off the right of the screen?
+                  bcc   :onscr
+                  rts
+:onscr            sta   RX                      ; byte x
                   sta   RXOrg
 * data += phase * rows * bpr
                   lda   RPhase
@@ -1516,7 +1519,10 @@ DrawBall          ldy   NewSig+11
                   lda   NewSig+9
                   lsr
                   lsr
-                  sta   RX
+                  cmp   #40                     ; off the right of the screen?
+                  bcc   :xok
+                  rts
+:xok              sta   RX
                   lda   #2
                   sta   RW
                   jsr   SetSlotRect             ; clobbers X, so index it after

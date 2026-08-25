@@ -1,115 +1,118 @@
 wait 420
+key s
+wait 60
 key r
 wait 60
-00/008a:0a 12 46
-00/00e2:0a 12 46
-00/00bf:0a 20 50
-00/00b6:0a 60 50
+00/008a:02 50 40
+00/00e2:02 50 40
+00/00cb:02 60 40 00 00
 wait 20
 hold right
-wait 21
+wait 40
 release
-wait 3
-hold right
-wait 12
-release
-wait 3
-hold down
 wait 10
-release
-wait 3
-hold up
-wait 19
-release
-wait 3
-hold right
-wait 20
-release
-wait 3
-hold up
-wait 14
-release
-wait 3
-hold up
-wait 13
-release
-wait 3
-hold left
-wait 6
-release
-wait 3
-hold right
-wait 12
-release
-wait 3
 hold down
-wait 17
-release
-wait 3
-hold up
-wait 15
-release
-wait 3
-hold down
-wait 9
-release
-wait 3
-hold right
-wait 6
-release
-wait 3
-hold left
-wait 9
-release
-wait 3
-hold right
-wait 5
-release
-wait 3
-hold down
-wait 16
-release
-wait 3
-hold down
-wait 16
-release
-wait 3
-hold right
-wait 20
-release
-wait 3
-hold right
-wait 14
-release
-wait 3
-hold down
-wait 22
-release
-wait 3
-hold left
-wait 9
-release
-wait 3
-hold up
-wait 17
-release
-wait 3
-hold down
-wait 5
-release
-wait 3
-hold left
 wait 23
 release
 wait 3
 hold left
+wait 20
+release
+wait 3
+hold up
+wait 27
+release
+wait 3
+hold down
 wait 25
 release
 wait 3
-wait 10
-shot mz-incremental.png
-00/60fe:ff ff ff ff ff ff ff ff
+hold down
+wait 15
+release
+wait 3
+hold right
+wait 28
+release
+wait 3
+hold down
+wait 16
+release
+wait 3
+hold right
 wait 8
-shot mz-full.png
-mem 00/008a 4
+release
+wait 3
+hold left
+wait 12
+release
+wait 3
+hold down
+wait 8
+release
+wait 3
+hold right
+wait 23
+release
+wait 3
+hold left
+wait 12
+release
+wait 3
+hold right
+wait 16
+release
+wait 3
+hold down
+wait 26
+release
+wait 3
+hold right
+wait 19
+release
+wait 3
+hold down
+wait 8
+release
+wait 3
+hold right
+wait 20
+release
+wait 3
+hold left
+wait 12
+release
+wait 3
+hold up
+wait 26
+release
+wait 3
+hold left
+wait 27
+release
+wait 3
+hold left
+wait 18
+release
+wait 3
+hold right
+wait 13
+release
+wait 3
+hold right
+wait 8
+release
+wait 3
+hold right
+wait 27
+release
+wait 3
+hold right
+wait 6
+release
+wait 3
+wait 10
+FORCEREDRAW
+wait 8
+shot ghost.png
 echo done

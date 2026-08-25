@@ -1,9 +1,0 @@
-wait 420
-key r
-wait 60
-mem 00/002e 2
-wait 30
-mem 00/002e 2
-wait 30
-mem 00/002e 2
-echo done

@@ -1,7 +1,0 @@
-wait 600
-echo booted
-shot before-esc.png
-key esc
-wait 120
-shot after-esc.png
-echo done

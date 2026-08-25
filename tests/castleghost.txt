@@ -1,0 +1,113 @@
+wait 420
+wait 1
+wait 60
+key r
+wait 60
+00/008a:0a 12 46
+00/00e2:0a 12 46
+wait 20
+hold right
+wait 28
+release
+wait 3
+hold down
+wait 28
+release
+wait 3
+hold up
+wait 25
+release
+wait 3
+hold up
+wait 26
+release
+wait 3
+hold right
+wait 20
+release
+wait 3
+hold left
+wait 27
+release
+wait 3
+hold up
+wait 21
+release
+wait 3
+hold up
+wait 10
+release
+wait 3
+hold down
+wait 24
+release
+wait 3
+hold up
+wait 7
+release
+wait 3
+hold down
+wait 9
+release
+wait 3
+hold down
+wait 25
+release
+wait 3
+hold left
+wait 11
+release
+wait 3
+hold right
+wait 24
+release
+wait 3
+hold right
+wait 13
+release
+wait 3
+hold down
+wait 8
+release
+wait 3
+hold left
+wait 12
+release
+wait 3
+hold down
+wait 28
+release
+wait 3
+hold right
+wait 14
+release
+wait 3
+hold left
+wait 12
+release
+wait 3
+hold right
+wait 22
+release
+wait 3
+hold down
+wait 28
+release
+wait 3
+hold left
+wait 7
+release
+wait 3
+hold right
+wait 10
+release
+wait 3
+hold down
+wait 19
+release
+wait 3
+wait 10
+FORCEREDRAW
+wait 8
+shot ghost.png
+echo done
