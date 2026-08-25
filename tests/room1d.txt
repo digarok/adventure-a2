@@ -1,0 +1,14 @@
+wait 420
+key r
+wait 60
+00/008a:03 50 20
+00/00e2:03 50 20
+hold down
+wait 200
+release
+mem 00/008a 4
+mem 00/0080 4
+shot 1d-a.png
+wait 1
+shot 1d-b.png
+echo done

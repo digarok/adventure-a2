@@ -290,16 +290,31 @@ StoreCount        sty   LastObj
                   rts
 
 * ---- RoomNumToAddress (f271) ---------------------------------
+* room * 9 must be 16-bit: room $1d is 261 bytes into the table.
 RoomNumToAddress  sta   Temp
-                  asl
-                  asl
-                  asl
-                  adc   Temp                    ; *9 (room < 32, no carry)
+                  sta   Ptr
+                  lda   #0
+                  sta   Ptr+1
+                  clc
+                  rol   Ptr
+                  rol   Ptr+1
+                  rol   Ptr
+                  rol   Ptr+1
+                  rol   Ptr
+                  rol   Ptr+1                   ; room * 8
+                  lda   Temp
+                  clc
+                  adc   Ptr
+                  sta   Ptr
+                  lda   #0
+                  adc   Ptr+1                   ; room * 9
+                  sta   Ptr+1
+                  lda   Ptr
                   clc
                   adc   #<RoomDataTable
                   sta   Ptr
-                  lda   #>RoomDataTable
-                  adc   #0
+                  lda   Ptr+1
+                  adc   #>RoomDataTable
                   sta   Ptr+1
                   rts
 
