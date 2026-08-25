@@ -1547,26 +1547,41 @@ DrawBall          ldy   NewSig+11
                   ldy   RCnt
                   jsr   BallByte
                   sta   BallB2
+* two lines at a time: the next one is the same byte, $400 lower
 :line             ldy   RLine
                   cpy   #192
                   bcs   :skip
                   lda   HgrLo,y
                   sta   RP
+                  sta   RQ
                   lda   HgrHi,y
                   clc
                   adc   RPageHi
                   sta   RP+1
+                  clc
+                  adc   #4
+                  sta   RQ+1
                   ldy   RX
                   lda   (RP),y
                   ora   BallB1
                   sta   (RP),y
+                  lda   (RQ),y
+                  ora   BallB1
+                  sta   (RQ),y
+                  lda   BallB2                  ; a 7-pixel block only spills
+                  beq   :n                      ; into the next byte off-phase
                   iny
                   cpy   #40
                   bcs   :n
                   lda   (RP),y
                   ora   BallB2
                   sta   (RP),y
+                  lda   (RQ),y
+                  ora   BallB2
+                  sta   (RQ),y
 :n                inc   RLine
+                  inc   RLine
+                  dec   RRows
                   dec   RRows
                   bne   :line
 :skip             rts
