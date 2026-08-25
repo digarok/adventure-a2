@@ -1,0 +1,173 @@
+wait 420
+key r
+wait 60
+00/008a:0a 12 46
+00/00e2:0a 12 46
+wait 30
+hold right
+wait 40
+release
+wait 4
+hold right
+wait 33
+release
+wait 4
+hold down
+wait 16
+release
+wait 4
+hold right
+wait 16
+release
+wait 4
+hold up
+wait 33
+release
+wait 4
+hold left
+wait 14
+release
+wait 4
+hold up
+wait 39
+release
+wait 4
+hold up
+wait 30
+release
+wait 4
+hold right
+wait 15
+release
+wait 4
+hold up
+wait 38
+release
+wait 4
+hold up
+wait 8
+release
+wait 4
+hold up
+wait 17
+release
+wait 4
+hold down
+wait 6
+release
+wait 4
+hold right
+wait 25
+release
+wait 4
+hold right
+wait 17
+release
+wait 4
+hold down
+wait 23
+release
+wait 4
+hold right
+wait 5
+release
+wait 4
+hold up
+wait 34
+release
+wait 4
+hold left
+wait 31
+release
+wait 4
+hold up
+wait 21
+release
+wait 4
+hold left
+wait 19
+release
+wait 4
+hold left
+wait 6
+release
+wait 4
+hold up
+wait 11
+release
+wait 4
+hold right
+wait 11
+release
+wait 4
+hold left
+wait 29
+release
+wait 4
+hold up
+wait 6
+release
+wait 4
+hold up
+wait 18
+release
+wait 4
+hold down
+wait 8
+release
+wait 4
+hold right
+wait 29
+release
+wait 4
+hold right
+wait 31
+release
+wait 4
+hold up
+wait 17
+release
+wait 4
+hold left
+wait 26
+release
+wait 4
+hold up
+wait 24
+release
+wait 4
+hold left
+wait 5
+release
+wait 4
+hold right
+wait 12
+release
+wait 4
+hold down
+wait 20
+release
+wait 4
+hold up
+wait 5
+release
+wait 4
+hold up
+wait 34
+release
+wait 4
+hold right
+wait 16
+release
+wait 4
+hold down
+wait 33
+release
+wait 4
+wait 10
+shot g-incremental.png
+00/60fe:ff ff ff ff ff ff ff ff
+wait 8
+shot g-full.png
+mem 00/008a 4
+echo done

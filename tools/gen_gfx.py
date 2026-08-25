@@ -73,6 +73,11 @@ def hgr_row(bits, quad, phase):
 
 out = [HDR, '* layout per sprite: rows*bpr bytes for phase 0, then phase 1,2,3']
 out.append('SprHgrBpr         db    ' + ','.join('8' if s in QUAD else '4' for s in SPRITES))
+# A sprite whose every row is solid draws the same pixels wherever it is,
+# so when it only shifts a little the renderer can repaint just the edges.
+out.append('SprSolid          db    ' + ','.join(
+    '1' if (s in QUAD and sprite_rows(s) and all(r == 0xff for r in sprite_rows(s))) else '0'
+    for s in SPRITES))
 out.append('SprHgrL           db    ' + ','.join('<H%s' % s for s in SPRITES))
 out.append('SprHgrH           db    ' + ','.join('>H%s' % s for s in SPRITES))
 for s in SPRITES:

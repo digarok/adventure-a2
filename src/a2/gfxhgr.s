@@ -2,6 +2,7 @@
 
 * layout per sprite: rows*bpr bytes for phase 0, then phase 1,2,3
 SprHgrBpr         db    4,4,4,4,4,4,4,4,8,8,4,4,4,4,4,4,4,4,4,4,4,4,4,4
+SprSolid          db    0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 SprHgrL           db    <HGfxNull,<HGfxPort01,<HGfxPort02,<HGfxPort03,<HGfxPort04,<HGfxPort05,<HGfxPort06,<HGfxPort07,<HGfxSurround,<HGfxBridge,<HGfxNum1,<HGfxNum2,<HGfxNum3,<HGfxKey,<HGfxBat1,<HGfxBat2,<HGfxDrag0,<HGfxDrag1,<HGfxDrag2,<HGfxSword,<HGfxDot,<HGfxAuthor,<HGfxChalice,<HGfxMagnet
 SprHgrH           db    >HGfxNull,>HGfxPort01,>HGfxPort02,>HGfxPort03,>HGfxPort04,>HGfxPort05,>HGfxPort06,>HGfxPort07,>HGfxSurround,>HGfxBridge,>HGfxNum1,>HGfxNum2,>HGfxNum3,>HGfxKey,>HGfxBat1,>HGfxBat2,>HGfxDrag0,>HGfxDrag1,>HGfxDrag2,>HGfxSword,>HGfxDot,>HGfxAuthor,>HGfxChalice,>HGfxMagnet
 HGfxNull           =     *

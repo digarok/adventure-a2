@@ -18,6 +18,10 @@ DrawnSig          db    $ff,$ff,$ff,$ff, $ff,$ff,$ff,$ff
 SlotSig           ds    2*3*4
 SlotRect          ds    2*3*4                   ; x, w, top line, lines
 NewSig            ds    3*4
+NewRect           ds    3*4                     ; measured rect, before drawing
+OldRect           ds    3*4                     ; what this page had before
+MeasureOnly       db    0
+ItemSpr           db    0
 ChgFlags          ds    3
 SlotBase          db    0                       ; page*12
 CurSlot           db    0
@@ -178,42 +182,16 @@ DrawFrame         jsr   LatchCollisions
                   sta   SceneTick
                   jsr   BuildNewSig
 :snapped          jsr   MarkChanged
-                  jsr   EraseChanged
-* draw the changed items
-                  lda   ChgFlags
-                  beq   :d2
-                  lda   #0
-                  sta   CurSlot
-                  jsr   ClearSlotRect
-                  lda   NewSig+1
-                  sta   RX
-                  lda   NewSig+2
-                  sta   RLine
-                  lda   NewSig+3
-                  jsr   ObjColorClass
-                  tay
-                  lda   NewSig
-                  jsr   DrawSprite
-:d2               lda   ChgFlags+1
-                  beq   :d3
+* Measure where the solid items are going first: a solid sprite paints
+* the same pixels wherever it sits, so when it has only shifted a little
+* the overlap is already right and just the edges need doing.
                   lda   #1
-                  sta   CurSlot
-                  jsr   ClearSlotRect
-                  lda   NewSig+5
-                  sta   RX
-                  lda   NewSig+6
-                  sta   RLine
-                  lda   NewSig+7
-                  jsr   ObjColorClass
-                  tay
-                  lda   NewSig+4
-                  jsr   DrawSprite
-:d3               lda   ChgFlags+2
-                  beq   :flip
-                  lda   #2
-                  sta   CurSlot
-                  jsr   ClearSlotRect
-                  jsr   DrawBall
+                  sta   MeasureOnly
+                  jsr   DrawItems
+                  lda   #0
+                  sta   MeasureOnly
+                  jsr   EraseChanged
+                  jsr   DrawItems
 :flip
 * flip
                   lda   DrawPage
@@ -227,6 +205,59 @@ DrawFrame         jsr   LatchCollisions
                   sta   DrawPage
                   rts
 
+
+*-------------------------------------------------------------
+* Walk the three items (object 1, object 2, ball), drawing - or, in the
+* measure pass, only working out the rectangle of - the changed ones.
+DrawItems         lda   #0
+                  sta   CurSlot
+:item             ldx   CurSlot
+                  lda   ChgFlags,x
+                  beq   :next
+                  lda   CurSlot
+                  asl
+                  asl
+                  tax
+                  lda   NewSig,x
+                  sta   ItemSpr
+                  lda   MeasureOnly
+                  beq   :draw
+                  lda   CurSlot                 ; measuring: solid sprites only
+                  cmp   #2
+                  beq   :nomeas                 ; (the ball is not one)
+                  ldy   ItemSpr
+                  lda   SprSolid,y
+                  bne   :draw
+:nomeas
+                  lda   #0
+                  sta   NewRect+3,x
+                  beq   :next
+:draw             lda   MeasureOnly
+                  bne   :go
+                  jsr   ClearSlotRect
+                  lda   CurSlot
+                  asl
+                  asl
+                  tax
+:go               lda   CurSlot
+                  cmp   #2
+                  beq   :ball
+                  lda   NewSig+1,x
+                  sta   RX
+                  lda   NewSig+2,x
+                  sta   RLine
+                  lda   NewSig+3,x
+                  jsr   ObjColorClass
+                  tay
+                  lda   ItemSpr
+                  jsr   DrawSprite
+                  jmp   :next
+:ball             jsr   DrawBall
+:next             inc   CurSlot
+                  lda   CurSlot
+                  cmp   #3
+                  bne   :item
+                  rts
 
 *-------------------------------------------------------------
 * What should be on screen this frame, per item.
@@ -304,8 +335,20 @@ MarkChanged       ldx   #0                      ; NewSig index
                   bne   :item
                   rts
 
-* SlotRect for the item in CurSlot -> zero height (nothing drawn)
+* Keep what this page had for CurSlot, then mark it as nothing drawn.
 ClearSlotRect     jsr   SlotRectIdx
+                  lda   CurSlot
+                  asl
+                  asl
+                  tay
+                  lda   SlotRect,x
+                  sta   OldRect,y
+                  lda   SlotRect+1,x
+                  sta   OldRect+1,y
+                  lda   SlotRect+2,x
+                  sta   OldRect+2,y
+                  lda   SlotRect+3,x
+                  sta   OldRect+3,y
                   lda   #0
                   sta   SlotRect+3,x
                   rts
@@ -319,9 +362,10 @@ SlotRectIdx       lda   CurSlot
                   tax
                   rts
 
-* remember the rectangle just drawn for CurSlot
-SetSlotRect       jsr   SlotRectIdx
-                  lda   RX
+* remember the rectangle just drawn for CurSlot.  In the measure pass it
+* goes to NewRect instead, and the real pass keeps the previous one in
+* OldRect so the draw can tell how far a solid item has shifted.
+SetSlotRect       lda   RX
                   clc
                   adc   RW
                   cmp   #41                     ; clip the rect to the line
@@ -331,9 +375,27 @@ SetSlotRect       jsr   SlotRectIdx
                   sbc   RX
                   jmp   :w
 :fits             lda   RW
-:w                sta   SlotRect+1,x
+:w                sta   T0
+                  lda   CurSlot
+                  asl
+                  asl
+                  tax
+                  lda   MeasureOnly
+                  beq   :real
+                  lda   RX
+                  sta   NewRect,x
+                  lda   T0
+                  sta   NewRect+1,x
+                  lda   RLine
+                  sta   NewRect+2,x
+                  lda   RRows
+                  sta   NewRect+3,x
+                  rts
+:real             jsr   SlotRectIdx
                   lda   RX
                   sta   SlotRect,x
+                  lda   T0
+                  sta   SlotRect+1,x
                   lda   RLine
                   sta   SlotRect+2,x
                   lda   RRows
@@ -349,22 +411,254 @@ EraseChanged      lda   FullRedraw
 :item             ldx   CurSlot
                   lda   ChgFlags,x
                   beq   :next
-                  jsr   SlotRectIdx
+                  jsr   EraseOld
+:next             inc   CurSlot
+                  lda   CurSlot
+                  cmp   #3
+                  bne   :item
+:done             rts
+
+* Erase what CurSlot last covered.  If it is a solid item that has only
+* shifted along one axis, the overlap already holds the right pixels and
+* only the strip it has left behind needs clearing.
+EraseOld          jsr   SlotRectIdx
                   lda   SlotRect+3,x
-                  beq   :next
-                  sta   RRows
+                  bne   :any
+                  rts                           ; nothing was drawn there
+:any              sta   RRows
                   lda   SlotRect,x
                   sta   RX
                   lda   SlotRect+1,x
                   sta   RW
                   lda   SlotRect+2,x
                   sta   RLine
-                  jsr   EraseRect
-:next             inc   CurSlot
                   lda   CurSlot
-                  cmp   #3
-                  bne   :item
-:done             rts
+                  asl
+                  asl
+                  tay
+                  lda   NewRect+3,y             ; measured? (solid items only)
+                  bne   :meas
+                  jmp   EraseRect
+:meas             lda   NewRect+1,y
+                  cmp   RW
+                  beq   :samew
+                  jmp   EraseRect
+:samew            lda   NewRect,y
+                  cmp   RX
+                  beq   :vert
+* same width, different column: clear the columns it no longer covers
+                  lda   NewRect+2,y
+                  cmp   RLine
+                  beq   :h1
+                  jmp   EraseRect
+:h1               lda   NewRect+3,y
+                  cmp   RRows
+                  beq   :h2
+                  jmp   EraseRect
+:h2               lda   NewRect,y
+                  sta   T0                      ; new left
+                  clc
+                  adc   NewRect+1,y
+                  sta   T1                      ; new right
+                  lda   RX
+                  sta   T2                      ; old left
+                  clc
+                  adc   RW
+                  sta   T4                      ; old right
+                  jsr   Overlap
+                  bcs   :h3
+                  jmp   EraseRect               ; disjoint: clear the lot
+:h3               lda   T0                      ; strip on the left
+                  sec
+                  sbc   T2
+                  beq   :eright
+                  bcc   :eright
+                  sta   RW
+                  lda   T2
+                  sta   RX
+                  jsr   EraseKeep
+:eright           lda   T4                      ; strip on the right
+                  sec
+                  sbc   T1
+                  beq   :edone
+                  bcc   :edone
+                  sta   RW
+                  lda   T1
+                  sta   RX
+                  jsr   EraseKeep
+:edone            rts
+* same column and width: clear the lines it no longer covers
+:vert             lda   NewRect+2,y
+                  sta   T0                      ; new top
+                  clc
+                  adc   NewRect+3,y
+                  sta   T1                      ; new bottom
+                  lda   RLine
+                  sta   T2                      ; old top
+                  clc
+                  adc   RRows
+                  sta   T4                      ; old bottom
+                  jsr   Overlap
+                  bcs   :v1
+                  jmp   EraseRect
+:v1               lda   T0                      ; strip above
+                  sec
+                  sbc   T2
+                  beq   :ebelow
+                  bcc   :ebelow
+                  sta   RRows
+                  lda   T2
+                  sta   RLine
+                  jsr   EraseKeep
+:ebelow           lda   T4                      ; strip below
+                  sec
+                  sbc   T1
+                  beq   :vdone
+                  bcc   :vdone
+                  sta   RRows
+                  lda   T1
+                  sta   RLine
+                  jsr   EraseKeep
+:vdone            rts
+
+* EraseRect eats RLine/RRows, so keep them for the second strip
+EraseKeep         lda   RLine
+                  pha
+                  lda   RRows
+                  pha
+                  jsr   EraseRect
+                  pla
+                  sta   RRows
+                  pla
+                  sta   RLine
+                  rts
+
+* ranges [T0,T1) and [T2,T4) -> carry set if they overlap
+Overlap           lda   T0
+                  cmp   T4
+                  bcs   :no
+                  lda   T2
+                  cmp   T1
+                  bcs   :no
+                  sec
+                  rts
+:no               clc
+                  rts
+
+*-------------------------------------------------------------
+* A solid item that has only shifted along one axis already has the
+* right pixels in the overlap; narrow the blit to the new edge.
+* Carry set on return means there is nothing left to draw.
+RestrictDraw      lda   CurSlot
+                  asl
+                  asl
+                  tay
+                  lda   OldRect+3,y
+                  bne   :any
+                  clc                           ; nothing was there: draw it all
+                  rts
+:any              lda   OldRect+1,y
+                  cmp   RW
+                  beq   :w2
+                  jmp   :all
+:w2               lda   OldRect,y
+                  cmp   RX
+                  beq   :vert
+                  lda   OldRect+2,y
+                  cmp   RLine
+                  beq   :h2
+                  jmp   :all
+:h2               lda   OldRect+3,y
+                  cmp   RRows
+                  beq   :h3
+                  jmp   :all
+:h3
+* same lines, shifted sideways: draw only the columns it has gained
+                  lda   OldRect,y
+                  sta   T0
+                  clc
+                  adc   OldRect+1,y
+                  sta   T1
+                  lda   RX
+                  sta   T2
+                  clc
+                  adc   RW
+                  sta   T4
+                  jsr   Overlap
+                  bcs   :h4
+                  jmp   :all
+:h4               lda   T0
+                  cmp   T2
+                  bcc   :right
+                  lda   T0                      ; gained columns on the left
+                  sta   RXEnd
+                  jmp   :check
+:right            lda   T1                      ; gained columns on the right
+                  sta   RX
+                  jmp   :check
+* same column: draw only the lines it has gained
+:vert             lda   OldRect+3,y
+                  cmp   RRows
+                  beq   :v1
+                  jmp   :all
+:v1
+                  lda   OldRect+2,y
+                  sta   T0
+                  clc
+                  adc   OldRect+3,y
+                  sta   T1
+                  lda   RLine
+                  sta   T2
+                  clc
+                  adc   RRows
+                  sta   T4
+                  jsr   Overlap
+                  bcs   :v2
+                  jmp   :all
+:v2               lda   T0
+                  cmp   T2
+                  bcc   :below
+                  lda   T0                      ; gained lines above
+                  sec
+                  sbc   T2
+                  sta   RRows
+                  jmp   :check
+:below            lda   T4                      ; gained lines below: skip ahead
+                  sec
+                  sbc   T1
+                  beq   :none
+                  sta   T5
+                  lda   T1
+                  sta   RLine
+                  lda   T5
+                  sta   RRows
+                  lda   T1                      ; advance past the rows we skip
+                  sec
+                  sbc   T2
+                  lsr                           ; lines -> sprite rows
+                  tax
+                  beq   :ok
+:adv              lda   RQ
+                  clc
+                  adc   RBpr
+                  sta   RQ
+                  bcc   :nc
+                  inc   RQ+1
+:nc               dex
+                  bne   :adv
+:ok               jmp   :check
+:none             sec
+                  rts
+:all              clc
+                  rts
+* an empty strip means the item has not really moved
+:check            lda   RRows
+                  beq   :none
+                  lda   RX
+                  cmp   RXEnd
+                  bcs   :none
+                  clc
+                  rts
 
 *-------------------------------------------------------------
 * Full room draw on the back page: build RoomBytes template then
@@ -381,6 +675,14 @@ DrawRoom          ldx   DrawPage
                   sta   DrawnSig+2,x
                   lda   RoomCtrl
                   sta   DrawnSig+3,x
+* the page is wiped, so nothing is left of the items that were on it
+                  ldx   DrawPage
+                  beq   :s0
+                  ldx   #12
+:s0               lda   #0
+                  sta   SlotRect+3,x
+                  sta   SlotRect+7,x
+                  sta   SlotRect+11,x
                   jsr   BuildTemplate
                   lda   #0
                   sta   RLine
@@ -639,11 +941,13 @@ DrawSprite        sta   T3
                   bcs   :ok
                   jmp   :skiprows
 :ok               asl
-                  bcs   :below                  ; >= 256: off bottom
-                  sta   RLine
+                  bcc   :ok2                    ; >= 256: off bottom
+                  jmp   :below
+:ok2              sta   RLine
                   cmp   #192
-                  bcs   :below
-                  jmp   :draw
+                  bcc   :draw2
+                  jmp   :below
+:draw2            jmp   :draw
 :skiprows         lda   RLine                   ; Y > 105: first (Y-105) rows are off the top
                   sec
                   sbc   #105
@@ -684,6 +988,14 @@ DrawSprite        sta   T3
                   lda   #40
 :xok              sta   RXEnd
                   jsr   SetSlotRect
+                  lda   MeasureOnly
+                  beq   :solid
+                  rts
+:solid            ldx   ItemSpr
+                  lda   SprSolid,x
+                  beq   :row
+                  jsr   RestrictDraw            ; only the edges have changed
+                  bcs   :below
 :row              lda   RPrio
                   bne   :prio
                   jsr   BlitRow2                ; both lines in one pass
@@ -839,7 +1151,11 @@ DrawBall          ldy   NewSig+11
                   lda   #2
                   sta   RW
                   jsr   SetSlotRect             ; clobbers X, so index it after
+                  lda   MeasureOnly
+                  beq   :real
+                  rts
 * the two screen bytes are the same on every line: build them once
+:real
                   lda   RX
                   and   #1
                   bne   :odd
