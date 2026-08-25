@@ -1,0 +1,2473 @@
+
+
+
+
+    Adventure.bin Disassembly
+
+    
+    
+    
+    
+
+    
+
+
+
+    back to project page
+    Adventure.bin Disassembly
+
+    
+        
+                   ********************************************************************************
+                   * Adventure for the Atari 2600, by Warren Robinett                             *
+                   * Copyright 1979 Atari, Inc.                                                   *
+                   ********************************************************************************
+                   * This disassembly was created by Joel D. Park in Jun 2002, based on an        *
+                   * earlier disassembly from Nov 1994.  This is a fairly straight conversion to  *
+                   * SourceGen format; very little has been changed other than corrections to     *
+                   * spelling.                                                                    *
+                   ********************************************************************************
+                   * Project created by Andy McFadden, using 6502bench SourceGen v1.5.            *
+                   * Last updated 2020/01/17                                                      *
+                   ********************************************************************************
+                   VSYNC           .eq     $00                 ;W 0000 00x0  Vertical Sync Set-Clear
+                   VBLANK          .eq     $01                 ;W xx00 00x0  Vertical Blank Set-Clear
+                   WSYNC           .eq     $02                 ;W ---- ----  Wait for Horizontal Blank
+                   NUSIZ0          .eq     $04                 ;W 00xx 0xxx  Number-Size player/missile 0
+                   NUSIZ1          .eq     $05                 ;W 00xx 0xxx  Number-Size player/missile 1
+                   COLUP0          .eq     $06                 ;W xxxx xxx0  Color-Luminance Player 0
+                   COLUP1          .eq     $07                 ;W xxxx xxx0  Color-Luminance Player 1
+                   COLUPF          .eq     $08                 ;W xxxx xxx0  Color-Luminance Playfield
+                   COLUBK          .eq     $09                 ;W xxxx xxx0  Color-Luminance Background
+                   CTRLPF          .eq     $0a                 ;W 00xx 0xxx  Control Playfield, Ball, Collisions
+                   PF0             .eq     $0d                 ;W xxxx 0000  Playfield Register Byte 0
+                   PF1             .eq     $0e                 ;W xxxx xxxx  Playfield Register Byte 1
+                   PF2             .eq     $0f                 ;W xxxx xxxx  Playfield Register Byte 2
+                   RESP0           .eq     $10                 ;W ---- ----  Reset Player 0
+                   AUDC0           .eq     $15                 ;W 0000 xxxx  Audio Control 0
+                   AUDF0           .eq     $17                 ;W 000x xxxx  Audio Frequency 0
+                   AUDV0           .eq     $19                 ;W 0000 xxxx  Audio Volume 0
+                   AUDV1           .eq     $1a                 ;W 0000 xxxx  Audio Volume 1
+                   GRP0            .eq     $1b                 ;W xxxx xxxx  Graphics Register Player 0
+                   GRP1            .eq     $1c                 ;W xxxx xxxx  Graphics Register Player 1
+                   ENAM0           .eq     $1d                 ;W 0000 00x0  Graphics Enable Missile 0
+                   ENAM1           .eq     $1e                 ;W 0000 00x0  Graphics Enable Missile 1
+                   ENABL           .eq     $1f                 ;W 0000 00x0  Graphics Enable Ball
+                   HMP0            .eq     $20                 ;W xxxx 0000  Horizontal Motion Player 0
+                   VDELP1          .eq     $26                 ;W 0000 000x  Vertical Delay Player 1
+                   HMOVE           .eq     $2a                 ;W ---- ----  Apply Horizontal Motion
+                   HMCLR           .eq     $2b                 ;W ---- ----  Clear Horizontal Move Registers
+                   CXCLR           .eq     $2c                 ;W ---- ----  Clear Collision Latches
+                   CXP0FB          .eq     $32                 ;R xx00 0000  Read Collision P0-PF P0-BL
+                   CXP1FB          .eq     $33                 ;R xx00 0000  Read Collision P1-PF P1-BL
+                   CXM0FB          .eq     $34                 ;R xx00 0000  Read Collision M0-PF M0-BL
+                   CXM1FB          .eq     $35                 ;R xx00 0000  Read Collision M1-PF M1-BL
+                   CXBLPF          .eq     $36                 ;R x000 0000  Read Collision BL-PF -----
+                   CXPPMM          .eq     $37                 ;R xx00 0000  Read Collision P0-P1 M0-M1
+                   INPT4           .eq     $3c                 ;R x000 0000  Read Input (Trigger) 0
+                   SWCHA           .eq     $0280               ;RW Port A data register (joysticks...)
+                   SWCHB           .eq     $0282               ;RW Port B data (console switches)
+                   INTIM           .eq     $0284               ;R Timer output
+                   TIM64T          .eq     $0296               ;W set 64 clock interval
+
+                                   .org    $f000
+f000: 4c ef f2     START           jmp     StartGame           ;3
+
+                   ; alternate start
+f003: 78                           sei                         ;2  setup for 6507, start with no
+f004: d8                           cld                         ;2   variable initialization
+f005: 4c 06 f3                     jmp     MainGameLoop        ;3
+
+f008: 85 2b        PrintDisplay    sta     HMCLR               ;3  clear horizontal motion
+f00a: a5 86                        lda     $86                 ;3  position Player00 sprite to
+f00c: a2 00                        ldx     #$00                ;2   the X coordinate of Object1
+f00e: 20 d2 f0                     jsr     PosSpriteX          ;6
+f011: a5 88                        lda     $88                 ;3  position Player01 sprite to
+f013: a2 01                        ldx     #$01                ;2   the X coordinate of Object2
+f015: 20 d2 f0                     jsr     PosSpriteX          ;6
+f018: a5 8b                        lda     $8b                 ;3  position ball sprite to
+f01a: a2 04                        ldx     #$04                ;2   the X coordinate of the Man
+f01c: 20 d2 f0                     jsr     PosSpriteX          ;6
+f01f: 85 02                        sta     WSYNC               ;3  wait for horizontal blank
+f021: 85 2a                        sta     HMOVE               ;3  apply horizontal motion
+f023: 85 2c                        sta     CXCLR               ;3  clear collision latches
+f025: a5 8c                        lda     $8c                 ;3  get the Y coordinate of the Man
+f027: 38                           sec                         ;2
+f028: e9 04                        sbc     #$04                ;2  and adjust it (by four scan lines)
+f02a: 85 8d                        sta     $8d                 ;3   for printing (so Y coordinate specifies middle)
+f02c: ad 84 02     @PrintDisplay_1 lda     INTIM               ;4  wait for end of the
+f02f: d0 fb                        bne     @PrintDisplay_1     ;2+  current frame
+f031: a9 00                        lda     #$00                ;2
+f033: 85 90                        sta     $90                 ;3  set Player00 definition index
+f035: 85 91                        sta     $91                 ;3  set Player01 definition index
+f037: 85 8f                        sta     $8f                 ;3  set room definition index
+f039: 85 1c                        sta     GRP1                ;3  clear any graphics for Player01
+f03b: a9 01                        lda     #$01                ;2
+f03d: 85 26                        sta     VDELP1              ;3  vertically delay Player01
+f03f: a9 68                        lda     #$68                ;2
+f041: 85 8e                        sta     $8e                 ;3  set scan line count
+                   ; print top line of Room
+f043: a4 8f                        ldy     $8f                 ;3  get room definition index
+f045: b1 80                        lda     ($80),y             ;5+ get first room definition byte
+f047: 85 0d                        sta     PF0                 ;3   and display
+f049: c8                           iny                         ;2
+f04a: b1 80                        lda     ($80),y             ;5+ get next room definition byte
+f04c: 85 0e                        sta     PF1                 ;3   and display
+f04e: c8                           iny                         ;2
+f04f: b1 80                        lda     ($80),y             ;5+ get last room definition byte
+f051: 85 0f                        sta     PF2                 ;3   and display
+f053: c8                           iny                         ;2
+f054: 84 8f                        sty     $8f                 ;3  save for next time
+f056: 85 02                        sta     WSYNC               ;3  wait for horizontal blank
+f058: a9 00                        lda     #$00                ;2
+f05a: 85 01                        sta     VBLANK              ;3  clear any vertical blank
+f05c: 4c 72 f0                     jmp     PrintPlayer00       ;3
+
+                   ; print Player01 (Object2)
+f05f: a5 8e        PrintPlayer01   lda     $8e                 ;3  get current scan line
+f061: 38                           sec                         ;2  have we reached Object2's
+f062: e5 89                        sbc     $89                 ;3   Y coordinate?
+f064: 85 02                        sta     WSYNC               ;3  wait for horizontal blank
+f066: 10 0a                        bpl     PrintPlayer00       ;2+ if not, branch
+f068: a4 91                        ldy     $91                 ;3  get the Player01 definition index
+f06a: b1 84                        lda     ($84),y             ;5+ get the next Player01 definition byte
+f06c: 85 1c                        sta     GRP1                ;3   and display
+f06e: f0 02                        beq     PrintPlayer00       ;2+ if zero then definition finished
+f070: e6 91                        inc     $91                 ;5  goto next Player01 definition byte
+                   ; print Player00 (Object1), Ball (Man), and Room
+f072: a2 00        PrintPlayer00   ldx     #$00                ;2
+f074: a5 8e                        lda     $8e                 ;3  get the current scan line
+f076: 38                           sec                         ;2  have we reached the Object1's
+f077: e5 87                        sbc     $87                 ;3   Y coordinate?
+f079: 10 09                        bpl     @PrintPlayer00_1    ;2+ if not then branch
+f07b: a4 90                        ldy     $90                 ;3  get Player00 definition index
+f07d: b1 82                        lda     ($82),y             ;5+ get the next Player00 definition byte
+f07f: aa                           tax                         ;2
+f080: f0 02                        beq     @PrintPlayer00_1    ;2+ if zero then definition finished
+f082: e6 90                        inc     $90                 ;5  go to next Player00 definition byte
+                   @PrintPlayer00_1
+f084: a0 00                        ldy     #$00                ;2  disable Ball graphic
+f086: a5 8e                        lda     $8e                 ;3  get scan line count
+f088: 38                           sec                         ;2  have we reached the Man's
+f089: e5 8d                        sbc     $8d                 ;3   Y coordinate?
+f08b: 29 fc                        and     #$fc                ;2  mask value to four either side (getting depth of 8)
+f08d: d0 02                        bne     @PrintPlayer00_2    ;2+ if not, branch
+f08f: a0 02                        ldy     #$02                ;2  enable Ball graphic
+                   @PrintPlayer00_2
+f091: a5 8e                        lda     $8e                 ;3  get scan line count
+f093: 29 0f                        and     #$0f                ;2  have we reached a sixteenth scan line?
+f095: d0 26                        bne     @PrintPlayer00_4    ;2+ if not, branch
+f097: 85 02                        sta     WSYNC               ;3  wait for horizontal blank
+f099: 84 1f                        sty     ENABL               ;3  enable Ball (if wanted)
+f09b: 86 1b                        stx     GRP0                ;3  display Player00 definition byte (if wanted)
+f09d: a4 8f                        ldy     $8f                 ;3  get room definition index
+f09f: b1 80                        lda     ($80),y             ;5+ get first room definition byte
+f0a1: 85 0d                        sta     PF0                 ;3   and display
+f0a3: c8                           iny                         ;2
+f0a4: b1 80                        lda     ($80),y             ;5+ get next room definition byte
+f0a6: 85 0e                        sta     PF1                 ;3   and display
+f0a8: c8                           iny                         ;2
+f0a9: b1 80                        lda     ($80),y             ;5+ get next room definition byte
+f0ab: 85 0f                        sta     PF2                 ;3   and display
+f0ad: c8                           iny                         ;2
+f0ae: 84 8f                        sty     $8f                 ;3  save for next time
+                   @PrintPlayer00_3
+f0b0: c6 8e                        dec     $8e                 ;5  goto next scan line
+f0b2: a5 8e                        lda     $8e                 ;3  get the scan line
+f0b4: c9 08                        cmp     #$08                ;2  have we reached to within 8 scanlines of the bottom?
+f0b6: 10 a7                        bpl     PrintPlayer01       ;2+ if not, branch
+f0b8: 85 01                        sta     VBLANK              ;3  turn on VBLANK
+f0ba: 4c c6 f0                     jmp     TidyUp              ;3
+
+                   ; print Player00 (Object1) and Ball (Man)
+                   @PrintPlayer00_4
+f0bd: 85 02                        sta     WSYNC               ;3  wait for horizontal blank
+f0bf: 84 1f                        sty     ENABL               ;3  enable ball (if wanted)
+f0c1: 86 1b                        stx     GRP0                ;3  display Player00 definition byte (if wanted)
+f0c3: 4c b0 f0                     jmp     @PrintPlayer00_3    ;3
+
+f0c6: a9 00        TidyUp          lda     #$00                ;2
+f0c8: 85 1c                        sta     GRP1                ;3  clear any graphics for Player01
+f0ca: 85 1b                        sta     GRP0                ;3  clear any graphics for Player00
+f0cc: a9 20                        lda     #$20                ;2
+f0ce: 8d 96 02                     sta     TIM64T              ;4  start timing this frame using
+f0d1: 60                           rts                         ;6   the 64-bit counter
+
+                   ; position sprite X horizontally
+f0d2: a0 02        PosSpriteX      ldy     #$02                ;2  start with 10 clock cycles (to avoid HBLANK)
+f0d4: 38                           sec                         ;2  divide the coordinate wanted
+f0d5: c8           @loop           iny                         ;2   by fifteen, i.e. get coarse horizontal
+f0d6: e9 0f                        sbc     #$0f                ;2   value (in multiples of 5 clock cycles
+f0d8: b0 fb                        bcs     @loop               ;2+  therefore giving 15 color cycles)
+f0da: 49 ff                        eor     #$ff                ;2  flip remainder to positive value (inverted)
+f0dc: e9 06                        sbc     #$06                ;2  convert to left or right of current position
+f0de: 0a                           asl     A                   ;2
+f0df: 0a                           asl     A                   ;2
+f0e0: 0a                           asl     A                   ;2  move to high nybble for TIA
+f0e1: 0a                           asl     A                   ;2   horizontal motion
+f0e2: 84 02                        sty     WSYNC               ;3  wait for horizontal blank
+f0e4: 88           @loop           dey                         ;2  count down the color cycles
+f0e5: 10 fd                        bpl     @loop               ;2+  (these are 5 machine / 15 color cycles)
+f0e7: 95 10                        sta     RESP0,x             ;4  reset the sprite, thus positioning it coarsely
+f0e9: 95 20                        sta     HMP0,x              ;4  set horizontal (fine) motion of sprite
+f0eb: 60                           rts                         ;6
+
+                   ; perform VSYNC
+f0ec: ad 84 02     DoVSYNC         lda     INTIM               ;4  get timer output
+f0ef: d0 fb                        bne     DoVSYNC             ;2+ wait for time-out
+f0f1: a9 02                        lda     #$02                ;2
+f0f3: 85 02                        sta     WSYNC               ;3  wait for horizontal blank
+f0f5: 85 01                        sta     VBLANK              ;3  start vertical blanking
+f0f7: 85 02                        sta     WSYNC               ;3
+f0f9: 85 02                        sta     WSYNC               ;3
+f0fb: 85 02                        sta     WSYNC               ;3
+f0fd: 85 00                        sta     VSYNC               ;3
+f0ff: 85 02                        sta     WSYNC               ;3
+f101: 85 02                        sta     WSYNC               ;3
+f103: a9 00                        lda     #$00                ;2
+f105: 85 02                        sta     WSYNC               ;3  wait for horizontal blank
+f107: 85 00                        sta     VSYNC               ;3  end vertical sync
+f109: a9 2a                        lda     #$2a                ;2  set clock interval to
+f10b: 8d 96 02                     sta     TIM64T              ;4   count down next frame
+f10e: 60                           rts                         ;6
+
+                   ; set up a room for print
+f10f: a5 8a        SetupRoomPrint  lda     $8a                 ;3  get current room number
+f111: 20 71 f2                     jsr     RoomNumToAddress    ;6  convert it to an address
+f114: a0 00                        ldy     #$00                ;2
+f116: b1 93                        lda     ($93),y             ;5+ get low pointer to room graphics
+f118: 85 80                        sta     $80                 ;3
+f11a: a0 01                        ldy     #$01                ;2
+f11c: b1 93                        lda     ($93),y             ;5+ get high pointer to room graphics
+f11e: 85 81                        sta     $81                 ;3
+                   ; checdk B&W switch for room graphics
+f120: ad 82 02                     lda     SWCHB               ;4  get console switches
+f123: 29 08                        and     #$08                ;2  check black and white switch
+f125: f0 0c                        beq     UseBW               ;2+ branch if B&W
+                   ; use color
+f127: a0 02                        ldy     #$02                ;2
+f129: b1 93                        lda     ($93),y             ;5+ get room color
+f12b: 20 d3 f2                     jsr     ChangeColor         ;6  change if necessary
+f12e: 85 08                        sta     COLUPF              ;3  put in playfield color register
+f130: 4c 3c f1                     jmp     UseColor            ;3
+
+f133: a0 03        UseBW           ldy     #$03                ;2
+f135: b1 93                        lda     ($93),y             ;5+ get B&W color
+f137: 20 d3 f2                     jsr     ChangeColor         ;6  change if necessary
+f13a: 85 08                        sta     COLUPF              ;3  put in the playfield color register
+                   ; color background
+f13c: a9 08        UseColor        lda     #$08                ;2  get light grey background
+f13e: 20 d3 f2                     jsr     ChangeColor         ;6  change if necessary
+f141: 85 09                        sta     COLUBK              ;3  put it in the background color register
+                   ; playfield control
+f143: a0 04                        ldy     #$04                ;2
+f145: b1 93                        lda     ($93),y             ;5+ get the playfield control value
+f147: 85 0a                        sta     CTRLPF              ;3   and put in the playfield control register
+f149: 29 c0                        and     #$c0                ;2  get the "this wall" flag
+f14b: 4a                           lsr     A                   ;2
+f14c: 4a                           lsr     A                   ;2
+f14d: 4a                           lsr     A                   ;2  get the first bit into position
+f14e: 4a                           lsr     A                   ;2
+f14f: 4a                           lsr     A                   ;2
+f150: 85 1e                        sta     ENAM1               ;3  enable right hand thin wall (if wanted - Missile01)
+f152: 4a                           lsr     A                   ;2
+f153: 85 1d                        sta     ENAM0               ;3  enable left hand thin wall (if wanted - Missile00)
+                   ; get objects to display
+f155: 20 35 f2                     jsr     CacheObjects        ;6  get next two objects to display
+                   ; sort out their order
+f158: a5 95                        lda     $95                 ;3  if the Object1 is the
+f15a: c9 00                        cmp     #$00                ;2   invisible surround
+f15c: f0 0a                        beq     SwapPrintObjects    ;2+  then branch to swap (we want it was Player01)
+f15e: c9 5a                        cmp     #$5a                ;2  if the first object is the bridge then
+f160: d0 12                        bne     SetupObjectPrint    ;2+  swap the objects (we want it as Player01)
+f162: a5 96                        lda     $96                 ;3  if the Object2 is the
+f164: c9 00                        cmp     #$00                ;2   invisible surround then branch to leave
+f166: f0 0c                        beq     SetupObjectPrint    ;2+  it (we want it as Player01)
+                   SwapPrintObjects
+f168: a5 95                        lda     $95                 ;3
+f16a: 85 d8                        sta     $d8                 ;3
+f16c: a5 96                        lda     $96                 ;3
+f16e: 85 95                        sta     $95                 ;3  swap the objects to print
+f170: a5 d8                        lda     $d8                 ;3
+f172: 85 96                        sta     $96                 ;3
+                   ; setup Object1 to print
+                   SetupObjectPrint
+f174: a6 95                        ldx     $95                 ;3  get Object1
+f176: bd 44 ff                     lda     Store1,x            ;4+ get low pointer to its dynamic information
+f179: 85 93                        sta     $93                 ;3
+f17b: bd 45 ff                     lda     Store2,x            ;4+ get high pointer to its dynamic information
+f17e: 85 94                        sta     $94                 ;3
+f180: a0 01                        ldy     #$01                ;2
+f182: b1 93                        lda     ($93),y             ;5+ get Object1's X coordinate
+f184: 85 86                        sta     $86                 ;3   and store for print
+f186: a0 02                        ldy     #$02                ;2
+f188: b1 93                        lda     ($93),y             ;5+ get Object1's Y coordinate
+f18a: 85 87                        sta     $87                 ;3   and store for print
+f18c: bd 46 ff                     lda     Store3,x            ;4+ get low pointer to state value
+f18f: 85 93                        sta     $93                 ;3
+f191: bd 47 ff                     lda     Store4,x            ;4+ get high pointer to state value
+f194: 85 94                        sta     $94                 ;3
+f196: a0 00                        ldy     #$00                ;2
+f198: b1 93                        lda     ($93),y             ;5+ retrieve Object1's current state
+f19a: 85 dc                        sta     $dc                 ;3
+f19c: bd 48 ff                     lda     Store5,x            ;4+ get low pointer to state information
+f19f: 85 93                        sta     $93                 ;3
+f1a1: bd 49 ff                     lda     Store6,x            ;4+ get high pointer to state information
+f1a4: 85 94                        sta     $94                 ;3
+f1a6: 20 a1 f2                     jsr     GetObjectState      ;6  find current state in the state information
+f1a9: c8                           iny                         ;2  index to the state's corresponding graphic pointer
+f1aa: b1 93                        lda     ($93),y             ;5+ get Object1's low graphic address
+f1ac: 85 82                        sta     $82                 ;3   and store for print
+f1ae: c8                           iny                         ;2
+f1af: b1 93                        lda     ($93),y             ;5+ get Object1's high graphic address
+f1b1: 85 83                        sta     $83                 ;3   and store for print
+                   ; check B&W for Object01
+f1b3: ad 82 02                     lda     SWCHB               ;4  get console switches
+f1b6: 29 08                        and     #$08                ;2  check B&W switches
+f1b8: f0 0b                        beq     MakeObjectBW        ;2+ branch if B&W
+                   ; color
+f1ba: bd 4a ff                     lda     Store7,x            ;4+ get Object1's color
+f1bd: 20 d3 f2                     jsr     ChangeColor         ;6  change if necessary
+f1c0: 85 06                        sta     COLUP0              ;3   and set color luminance00
+f1c2: 4c cd f1                     jmp     ResizeObject        ;3
+
+                   ; B&W
+f1c5: bd 4b ff     MakeObjectBW    lda     Store8,x            ;4+ get object's B&W color
+f1c8: 20 d3 f2                     jsr     ChangeColor         ;6  change if necessary
+f1cb: 85 06                        sta     COLUP0              ;3  set color luminance00
+                   ; Object1 size
+f1cd: bd 4c ff     ResizeObject    lda     Store9,x            ;4+ get Object1's size
+f1d0: 09 10                        ora     #$10                ;2  and set to larger size if necessary
+f1d2: 85 04                        sta     NUSIZ0              ;3  (used by bridge and invisible surround)
+                   ; set up Object2 to print
+f1d4: a6 96                        ldx     $96                 ;3  get Object2
+f1d6: bd 44 ff                     lda     Store1,x            ;4+ get low pointer to its dynamic information
+f1d9: 85 93                        sta     $93                 ;3
+f1db: bd 45 ff                     lda     Store2,x            ;4+ get high pointer to its dynamic information
+f1de: 85 94                        sta     $94                 ;3
+f1e0: a0 01                        ldy     #$01                ;2
+f1e2: b1 93                        lda     ($93),y             ;5+ get Object2's X coordinate
+f1e4: 85 88                        sta     $88                 ;3   and store for print
+f1e6: a0 02                        ldy     #$02                ;2
+f1e8: b1 93                        lda     ($93),y             ;5+ get Object2's Y coordinate
+f1ea: 85 89                        sta     $89                 ;3   and store for print
+f1ec: bd 46 ff                     lda     Store3,x            ;4+ get low pointer to state value
+f1ef: 85 93                        sta     $93                 ;3
+f1f1: bd 47 ff                     lda     Store4,x            ;4+ get high pointer to state value
+f1f4: 85 94                        sta     $94                 ;3
+f1f6: a0 00                        ldy     #$00                ;2
+f1f8: b1 93                        lda     ($93),y             ;5+ retrieve Object2's current state
+f1fa: 85 dc                        sta     $dc                 ;3
+f1fc: bd 48 ff                     lda     Store5,x            ;4+ get low pointer to state information
+f1ff: 85 93                        sta     $93                 ;3
+f201: bd 49 ff                     lda     Store6,x            ;4+ get high pointer to state information
+f204: 85 94                        sta     $94                 ;3
+f206: 20 a1 f2                     jsr     GetObjectState      ;6  find the current state in the state information
+f209: c8                           iny                         ;2  index to the state's corresponding graphic pointer
+f20a: b1 93                        lda     ($93),y             ;5+
+f20c: 85 84                        sta     $84                 ;3  get Object2's low graphic address
+f20e: c8                           iny                         ;2
+f20f: b1 93                        lda     ($93),y             ;5+ get Object2's high graphic address
+f211: 85 85                        sta     $85                 ;3
+                   ; check B&W for Object2
+f213: ad 82 02                     lda     SWCHB               ;4  get console switches
+f216: 29 08                        and     #$08                ;2  check B&W switch
+f218: f0 0b                        beq     MakeObject2BW       ;2+ if B&W then branch
+                   ; color
+f21a: bd 4a ff                     lda     Store7,x            ;4+ get Object2's color
+f21d: 20 d3 f2                     jsr     ChangeColor         ;6  change if necessary
+f220: 85 07                        sta     COLUP1              ;3  and set color luminance01
+f222: 4c 2d f2                     jmp     ResizeObject2       ;3
+
+                   ; B&W
+f225: bd 4b ff     MakeObject2BW   lda     Store8,x            ;4+ get Object's B&W color
+f228: 20 d3 f2                     jsr     ChangeColor         ;6  change if necessary
+f22b: 85 07                        sta     COLUP1              ;3  and set color luminance01
+                   ; Object2 size
+f22d: bd 4c ff     ResizeObject2   lda     Store9,x            ;4+ get Object2's size
+f230: 09 10                        ora     #$10                ;2  and set to large size if necessary
+f232: 85 05                        sta     NUSIZ1              ;3  (used by bridge and invisible surround)
+f234: 60                           rts                         ;6
+
+                   ; fill cache with two objects in this room
+f235: a4 9c        CacheObjects    ldy     $9c                 ;3  get last object
+f237: a9 a2                        lda     #$a2                ;2  set cache to no-objects
+f239: 85 95                        sta     $95                 ;3
+f23b: 85 96                        sta     $96                 ;3
+f23d: 98           MoveNextObject  tya                         ;2
+f23e: 18                           clc                         ;2  goto the next object to
+f23f: 69 09                        adc     #$09                ;2   check (add nine)
+f241: c9 a2                        cmp     #162                ;2  check if over maximum (9*18)
+f243: 90 02                        bcc     GetObjectsInfo      ;2+
+f245: a9 00                        lda     #$00                ;2  if so, wrap to zero
+f247: a8           GetObjectsInfo  tay                         ;2
+f248: b9 44 ff                     lda     Store1,y            ;4+ get low byte of object info
+f24b: 85 93                        sta     $93                 ;3
+f24d: b9 45 ff                     lda     Store2,y            ;4+ get high byte of object info
+f250: 85 94                        sta     $94                 ;3
+f252: a2 00                        ldx     #$00                ;2
+f254: a1 93                        lda     ($93,x)             ;6  get object's current room
+f256: c5 8a                        cmp     $8a                 ;3  is it in this room?
+f258: d0 10                        bne     CheckForMoreObjects ;2+ if not lets try next object (branch)
+f25a: a5 95                        lda     $95                 ;3  check first slot
+f25c: c9 a2                        cmp     #162                ;2  if not default (no-object)
+f25e: d0 05                        bne     StoreObjectToPrint  ;2+  then branch
+f260: 84 95                        sty     $95                 ;3  store this object's number to print
+f262: 4c 6a f2                     jmp     CheckForMoreObjects ;3   and try for more
+
+                   StoreObjectToPrint
+f265: 84 96                        sty     $96                 ;3  store this object's number to print
+f267: 4c 6e f2                     jmp     StoreCount          ;3   and then give up - no slots free
+
+                   CheckForMoreObjects
+f26a: c4 9c                        cpy     $9c                 ;3  have we done all the objects?
+f26c: d0 cf                        bne     MoveNextObject      ;2+ if not, continue
+f26e: 84 9c        StoreCount      sty     $9c                 ;3  if so, store current count
+f270: 60                           rts                         ;6   for next time
+
+                   ; convert room number to address
+                   RoomNumToAddress
+f271: 85 d8                        sta     $d8                 ;3  store room number wanted
+f273: 85 93                        sta     $93                 ;3
+f275: a9 00                        lda     #$00                ;2  zero the high byte of the
+f277: 85 94                        sta     $94                 ;3   offset
+f279: 18                           clc                         ;2
+f27a: 26 93                        rol     $93                 ;5
+f27c: 26 94                        rol     $94                 ;5  multiply room number by eight
+f27e: 26 93                        rol     $93                 ;5
+f280: 26 94                        rol     $94                 ;5
+f282: 26 93                        rol     $93                 ;5
+f284: 26 94                        rol     $94                 ;5
+f286: a5 d8                        lda     $d8                 ;3  get the original room number
+f288: 18                           clc                         ;2
+f289: 65 93                        adc     $93                 ;3
+f28b: 85 93                        sta     $93                 ;3  and add it to the offset
+f28d: a9 00                        lda     #$00                ;2
+f28f: 65 94                        adc     $94                 ;3  in effect the room number is
+f291: 85 94                        sta     $94                 ;3   multiplied by nine
+f293: a9 1b                        lda     #<RoomDataTable     ;2
+f295: 18                           clc                         ;2
+f296: 65 93                        adc     $93                 ;3  add the room data base address
+f298: 85 93                        sta     $93                 ;3   to the offset therefore getting
+f29a: a9 fe                        lda     #>RoomDataTable     ;2   the final room data address
+f29c: 65 94                        adc     $94                 ;3
+f29e: 85 94                        sta     $94                 ;3
+f2a0: 60                           rts                         ;6
+
+                   ; get pointer to current state
+f2a1: a0 00        GetObjectState  ldy     #$00                ;2
+f2a3: a5 dc                        lda     $dc                 ;3  get the current object state
+                   @GetObjectState_1
+f2a5: d1 93                        cmp     ($93),y             ;5+ have we found it in the list of states?
+f2a7: 90 08                        bcc     @GetObjectState_2   ;2+ if nearing it then found it and return
+f2a9: f0 06                        beq     @GetObjectState_2   ;2+ if found it then return
+f2ab: c8                           iny                         ;2
+f2ac: c8                           iny                         ;2  goto next state in list of states
+f2ad: c8                           iny                         ;2
+f2ae: 4c a5 f2                     jmp     @GetObjectState_1   ;3
+
+                   @GetObjectState_2
+f2b1: 60                           rts                         ;6
+
+                   ; check for input
+f2b2: e6 e5        CheckInput      inc     $e5                 ;5  increment low count
+f2b4: d0 08                        bne     GetJoystick         ;2+
+f2b6: e6 e6                        inc     $e6                 ;5  increment high count if
+f2b8: d0 04                        bne     GetJoystick         ;2+  needed
+f2ba: a9 80                        lda     #$80                ;2  wrap the high count (indicating
+f2bc: 85 e6                        sta     $e6                 ;3   timeout) if needed
+f2be: ad 80 02     GetJoystick     lda     SWCHA               ;4  get joystick values
+f2c1: c9 ff                        cmp     #$ff                ;2  if any movement then branch
+f2c3: d0 09                        bne     @GetJoystick_2      ;2+
+f2c5: ad 82 02                     lda     SWCHB               ;4  get the console switches
+f2c8: 29 03                        and     #$03                ;2  mask for the reset/select switches
+f2ca: c9 03                        cmp     #$03                ;2  have either of them been used?
+f2cc: f0 04                        beq     @GetJoystick_3      ;2+ if not branch
+f2ce: a9 00        @GetJoystick_2  lda     #$00                ;2  zero the high count of the
+f2d0: 85 e6                        sta     $e6                 ;3   switches or joystick have been used
+f2d2: 60           @GetJoystick_3  rts                         ;6
+
+                   ; change color if necessary
+f2d3: 4a           ChangeColor     lsr     A                   ;2  if bit 0 of the color is set
+f2d4: 90 04                        bcc     @ChangeColor2       ;2+  then the room is to flash
+f2d6: a8                           tay                         ;2  use color as an index (usually E5 - the low counter)
+f2d7: b9 80 00                     lda     $0080,y             ;4+ get flash color (usually the low counter)
+f2da: a4 e6        @ChangeColor2   ldy     $e6                 ;3  get the input counter
+f2dc: 10 04                        bpl     @ChangeColor3       ;2+ if console/joystick moved recently then branch
+f2de: 45 e6                        eor     $e6                 ;3  merge the high counter with the color wanted
+f2e0: 29 fb                        and     #$fb                ;2  keep this color bug merge down the luminance
+f2e2: 0a           @ChangeColor3   asl     A                   ;2  and restore original color if necessary
+f2e3: 60                           rts                         ;6
+
+                   ; get the address of the dynamic information for an object
+                   GetObjectAddress
+f2e4: bd 44 ff                     lda     Store1,x            ;4+
+f2e7: 85 93                        sta     $93                 ;3  get and store the low address
+f2e9: bd 45 ff                     lda     Store2,x            ;4+
+f2ec: 85 94                        sta     $94                 ;3  get and store the high address
+f2ee: 60                           rts                         ;6
+
+                   ; game start entry point
+f2ef: 78           StartGame       sei                         ;2  disable interrupts
+f2f0: d8                           cld                         ;2
+f2f1: a2 28                        ldx     #$28                ;2  clear TIA registers
+f2f3: a9 00                        lda     #$00                ;2   $04-$2c i.e. blank
+f2f5: 95 04        ResetAll        sta     NUSIZ0,x            ;4   everything and turn
+f2f7: ca                           dex                         ;2   everything off
+f2f8: 10 fb                        bpl     ResetAll            ;2+
+f2fa: 9a                           txs                         ;2  reset stack to $ff
+f2fb: 95 00        SetupVars       sta     $00,x               ;4  clear $80 to $ff user vars
+f2fd: ca                           dex                         ;2
+f2fe: 30 fb                        bmi     SetupVars           ;2+
+f300: 20 71 f3                     jsr     ThinWalls           ;6  position the thin walls (missiles)
+f303: 20 d3 f3                     jsr     SetupRoomObjects    ;6  set up objects rooms and positions
+f306: 20 84 f3     MainGameLoop    jsr     CheckGameStart      ;6  check for game start
+f309: 20 23 fa                     jsr     MakeSound           ;6  make noise if necessary
+f30c: 20 b2 f2                     jsr     CheckInput          ;6  check for input
+f30f: a5 de                        lda     $de                 ;3  is the game active?
+f311: d0 52                        bne     NonActiveLoop       ;2+ if not branch
+f313: a5 b9                        lda     $b9                 ;3  get the room the chalice is in
+f315: c9 12                        cmp     #$12                ;2  is it in the yellow castle?
+f317: d0 0a                        bne     @MainGameLoop_2     ;2+ if not branch
+f319: a9 ff                        lda     #$ff                ;2
+f31b: 85 df                        sta     $df                 ;3  set the note count to maximum
+f31d: 85 de                        sta     $de                 ;3  set the game to inactive
+f31f: a9 00                        lda     #$00                ;2  set the noise type to end-noise
+f321: 85 e0                        sta     $e0                 ;3
+f323: a0 00        @MainGameLoop_2 ldy     #$00                ;2  allow joystick read - all movement
+f325: 20 c2 f4                     jsr     BallMovement        ;6  check ball collisions and move ball
+f328: 20 d4 f5                     jsr     MoveCarriedObject   ;6  move the carried object
+f32b: 20 ec f0                     jsr     DoVSYNC             ;6  wait for VSYNC
+f32e: 20 0f f1                     jsr     SetupRoomPrint      ;6  set up the room and objects for display
+f331: 20 08 f0                     jsr     PrintDisplay        ;6  display the room and objects
+f334: 20 56 f5                     jsr     PickupPutdown       ;6  deal with object pickup and putdown
+f337: a0 01                        ldy     #$01                ;2  disallow joystick read - move vertically only
+f339: 20 c2 f4                     jsr     BallMovement        ;6  check ball collisions and move ball
+f33c: 20 e7 f9                     jsr     Surround            ;6  deal with invisible surround moving
+f33f: 20 ec f0                     jsr     DoVSYNC             ;6  wait for VSYNC
+f342: 20 a5 f8                     jsr     MoveBat             ;6  move and deal with bat
+f345: 20 3c f9                     jsr     Portals             ;6  move and deal with portcullises
+f348: 20 08 f0                     jsr     PrintDisplay        ;6  display the room and objects
+f34b: 20 cb f7                     jsr     MoveGreenDragon     ;6  move and deal with the green dragon
+f34e: 20 b0 f7                     jsr     MoveYellowDragon    ;6  move and deal with the yellow dragon
+f351: 20 ec f0                     jsr     DoVSYNC             ;6  wait for VSYNC
+f354: a0 02                        ldy     #$02                ;2  disallow joystick read/bridge check - move horizontally only
+f356: 20 c2 f4                     jsr     BallMovement        ;6  check ball collisions and move ball
+f359: 20 95 f7                     jsr     MoveRedDragon       ;6  move and deal with red dragon
+f35c: 20 b3 f9                     jsr     Mag                 ;6  deal with the magnet
+f35f: 20 08 f0                     jsr     PrintDisplay        ;6  display the room and objects
+f362: 4c 06 f3                     jmp     MainGameLoop        ;3
+
+                   ; non-active game loop
+f365: 20 ec f0     NonActiveLoop   jsr     DoVSYNC             ;6  wait for VSYNC
+f368: 20 08 f0                     jsr     PrintDisplay        ;6  display the room and objects
+f36b: 20 0f f1                     jsr     SetupRoomPrint      ;6  set up room and objects for display
+f36e: 4c 06 f3                     jmp     MainGameLoop        ;3
+
+                   ; position missiles to "thin wall" areas
+f371: a9 0d        ThinWalls       lda     #$0d                ;2  position missile 00 to
+f373: a2 02                        ldx     #$02                ;2   (0d,00) - left thin wall
+f375: 20 d2 f0                     jsr     PosSpriteX          ;6
+f378: a9 96                        lda     #$96                ;2  position missile 01 to
+f37a: a2 03                        ldx     #$03                ;2   (96,00) - right thin wall
+f37c: 20 d2 f0                     jsr     PosSpriteX          ;6
+f37f: 85 02                        sta     WSYNC               ;3  wait for horizontal blank
+f381: 85 2a                        sta     HMOVE               ;3  apply the horizontal move
+f383: 60                           rts                         ;6
+
+f384: ad 82 02     CheckGameStart  lda     SWCHB               ;4  get the console switches
+f387: 49 ff                        eor     #$ff                ;2  flip (as reset active low)
+f389: 25 92                        and     $92                 ;3  compare with what was before
+f38b: 29 01                        and     #$01                ;2  and check only the reset switch
+f38d: f0 26                        beq     CheckReset          ;2+ if no reset then branch
+f38f: a5 de                        lda     $de                 ;3  has the game started?
+f391: c9 ff                        cmp     #$ff                ;2  if not then branch
+f393: f0 3e                        beq     SetupRoomObjects    ;2+
+f395: a9 11                        lda     #$11                ;2  get the yellow castle room
+f397: 85 8a                        sta     $8a                 ;3  make it the current room
+f399: 85 e2                        sta     $e2                 ;3  make it the previous room
+f39b: a9 50                        lda     #$50                ;2  get the X coordinate
+f39d: 85 8b                        sta     $8b                 ;3  make it the current ball X coordinate
+f39f: 85 e3                        sta     $e3                 ;3  make it the previous ball X coordinate
+f3a1: a9 20                        lda     #$20                ;2  get the Y coordinate
+f3a3: 85 8c                        sta     $8c                 ;3  make it the current ball Y coordinate
+f3a5: 85 e4                        sta     $e4                 ;3  make it the previous ball Y coordinate
+f3a7: a9 00                        lda     #$00                ;2
+f3a9: 85 a8                        sta     $a8                 ;3  set the red dragon's state to OK
+f3ab: 85 ad                        sta     $ad                 ;3  set the yellow dragon's state to OK
+f3ad: 85 b2                        sta     $b2                 ;3  set the green dragon's state to OK
+f3af: 85 df                        sta     $df                 ;3  set the note count to zero (ops!??)
+f3b1: a9 a2                        lda     #$a2                ;2
+f3b3: 85 9d                        sta     $9d                 ;3  set no object being carried
+f3b5: ad 82 02     CheckReset      lda     SWCHB               ;4  get the console switches
+f3b8: 49 ff                        eor     #$ff                ;2  flip (as select active low)
+f3ba: 25 92                        and     $92                 ;3  compare with what was before
+f3bc: 29 02                        and     #$02                ;2  and check only the select switch
+f3be: f0 4c                        beq     StoreSwitches       ;3+ branch if select not being used
+f3c0: a5 8a                        lda     $8a                 ;3  get the current room
+f3c2: c9 00                        cmp     #$00                ;2  is it the "number" room?
+f3c4: d0 0d                        bne     SetupRoomObjects    ;2+ branch if not
+f3c6: a5 dd                        lda     $dd                 ;3  increment the level
+f3c8: 18                           clc                         ;2   number (by two)
+f3c9: 69 02                        adc     #$02                ;2
+f3cb: c9 06                        cmp     #$06                ;2  have we reached the maximum?
+f3cd: 90 02                        bcc     ResetSetup          ;2+
+f3cf: a9 00                        lda     #$00                ;2  if yep then set back to zero
+f3d1: 85 dd        ResetSetup      sta     $dd                 ;3  store the new level number
+                   SetupRoomObjects
+f3d3: a9 00                        lda     #$00                ;2  set the current room to the
+f3d5: 85 8a                        sta     $8a                 ;3   "number" room
+f3d7: 85 e2                        sta     $e2                 ;3  and the previous room
+f3d9: a9 00                        lda     #$00                ;2  set the ball's Y coordinate to zero
+f3db: 85 8c                        sta     $8c                 ;3  and the previous Y coordinate
+f3dd: 85 e4                        sta     $e4                 ;3  (so can't be seen)
+f3df: a4 dd                        ldy     $dd                 ;3  get the level number
+f3e1: b9 5a f4                     lda     Loc_4,y             ;4+ get the low pointer to object locations
+f3e4: 85 93                        sta     $93                 ;3
+f3e6: b9 5b f4                     lda     Loc_5,y             ;4+ get the high pointer to object locations
+f3e9: 85 94                        sta     $94                 ;3
+f3eb: a0 30                        ldy     #$30                ;2  copy all the objects dynamic information
+f3ed: b1 93        @loop           lda     ($93),y             ;5+  (the rooms and positions) into
+f3ef: 99 a1 00                     sta     $00a1,y             ;5   the working area
+f3f2: 88                           dey                         ;2
+f3f3: 10 f8                        bpl     @loop               ;2+
+f3f5: a5 dd                        lda     $dd                 ;3  get the level number
+f3f7: c9 04                        cmp     #$04                ;2  branch if level one
+f3f9: 90 09                        bcc     SignalGameStart     ;3+ or two (where all objects are in defined areas)
+f3fb: 20 12 f4                     jsr     RandomizeLevel3     ;6  put some objects in random rooms
+f3fe: 20 ec f0                     jsr     DoVSYNC             ;6  wait for VSYNC
+f401: 20 08 f0                     jsr     PrintDisplay        ;6  display rooms and objects
+f404: a9 00        SignalGameStart lda     #$00                ;2  signal that the game has started
+f406: 85 de                        sta     $de                 ;3
+f408: a9 a2                        lda     #$a2                ;2  set no object being carried
+f40a: 85 9d                        sta     $9d                 ;3
+f40c: ad 82 02     StoreSwitches   lda     SWCHB               ;4  store the current console switches
+f40f: 85 92                        sta     $92                 ;3
+f411: 60                           rts                         ;6
+
+                   ; put objects in random rooms for level 3
+f412: a0 1e        RandomizeLevel3 ldy     #30                 ;2  for each of the eleven objects...
+f414: a5 e5        @loop           lda     $e5                 ;3  get the low input counter as seed
+f416: 4a                           lsr     A                   ;2
+f417: 4a                           lsr     A                   ;2
+f418: 4a                           lsr     A                   ;2  generate a pseudo-random
+f419: 4a                           lsr     A                   ;2   room number
+f41a: 4a                           lsr     A                   ;2
+f41b: 38                           sec                         ;2
+f41c: 65 e5                        adc     $e5                 ;3  store the low input counter
+f41e: 85 e5                        sta     $e5                 ;3
+f420: 29 1f                        and     #$1f                ;2  trim so represents a room value
+f422: d9 3a f4                     cmp     Loc_2,y             ;4+ if it is less than the
+f425: 90 ed                        bcc     @loop               ;2+  lower bound for object then get another
+f427: d9 3b f4                     cmp     Loc_3,y             ;4+ if it equals or is
+f42a: f0 02                        beq     @obj_le             ;2+  less than the higher bound for object
+f42c: b0 e6                        bcs     @loop               ;2+  then continue (branch if higher)
+f42e: be 39 f4     @obj_le         ldx     Loc_1,y             ;4+ get the dynamic data index for this object
+f431: 95 00                        sta     $00,x               ;4  store the new room value
+f433: 88                           dey                         ;2
+f434: 88                           dey                         ;2  goto the next object
+f435: 88                           dey                         ;2
+f436: 10 dc                        bpl     @loop               ;2+ until all done
+f438: 60                           rts                         ;6
+
+                   ; Room bounds data.
+                   ; 
+                   ; e.g. the chalice at location $B9 can only exist in rooms 13-1A for level 3.
+f439: b9           Loc_1           .dd1    $b9                 ;chalice
+f43a: 13           Loc_2           .dd1    $13
+f43b: 1a           Loc_3           .dd1    $1a
+f43c: a4 01 1d                     .bulk   $a4,$01,$1d         ;red dragon
+f43f: a9 01 1d                     .bulk   $a9,$01,$1d         ;yellow dragon
+f442: ae 01 1d                     .bulk   $ae,$01,$1d         ;green dragon
+f445: b6 01 1d                     .bulk   $b6,$01,$1d         ;sword
+f448: bc 01 1d                     .bulk   $bc,$01,$1d         ;bridge
+f44b: bf 01 1d                     .bulk   $bf,$01,$1d         ;yellow key
+f44e: c2 01 16                     .bulk   $c2,$01,$16         ;white key
+f451: c5 01 12                     .bulk   $c5,$01,$12         ;black key
+f454: cb 01 1d                     .bulk   $cb,$01,$1d         ;bat
+f457: b3 01 1d                     .bulk   $b3,$01,$1d         ;magnet
+f45a: 60           Loc_4           .dd1    <Game1Objects       ;pointer to object locations for game 01
+f45b: f4           Loc_5           .dd1    >Game1Objects
+f45c: 91 f4                        .dd2    Game2Objects        ;pointer to object locations for game 02
+f45e: 91 f4                        .dd2    Game2Objects        ;pointer to object locations for game 03
+                   ; object locations (room and coordinate) for game 01
+f460: 15 51 12     Game1Objects    .bulk   $15,$51,$12         ;black dot (room, X, Y)
+f463: 0e 50 20 00+                 .bulk   $0e,$50,$20,$00,$00 ;red dragon (room, X, Y, movement, state)
+f468: 01 50 20 00+                 .bulk   $01,$50,$20,$00,$00 ;yellow dragon (room, X, Y, movement, state)
+f46d: 1d 50 20 00+                 .bulk   $1d,$50,$20,$00,$00 ;green dragon (room, X, Y, movement, state)
+f472: 1b 80 20                     .bulk   $1b,$80,$20         ;magnet (room, X, Y)
+f475: 12 20 20                     .bulk   $12,$20,$20         ;sword (room, X, Y)
+f478: 1c 30 20                     .bulk   $1c,$30,$20         ;chalice (room, X, Y)
+f47b: 04 29 37                     .bulk   $04,$29,$37         ;bridge (room, X, Y)
+f47e: 11 20 40                     .bulk   $11,$20,$40         ;yellow key (room, X, Y)
+f481: 0e 20 40                     .bulk   $0e,$20,$40         ;white key (room, X, Y)
+f484: 1d 20 40                     .bulk   $1d,$20,$40         ;black key (room, X, Y)
+f487: 1c                           .dd1    $1c                 ;portcullis state
+f488: 1c                           .dd1    $1c                 ;portcullis state
+f489: 1c                           .dd1    $1c                 ;portcullis state
+f48a: 1a 20 20 00+                 .bulk   $1a,$20,$20,$00,$00 ;bat (room, X, Y, movement, state)
+f48f: 78 00                        .bulk   $78,$00             ;bat (carrying, fed-up)
+                   ; object locations (room and coordinate) for games 02 and 03
+f491: 15 51 12     Game2Objects    .bulk   $15,$51,$12         ;black dot (room, X, Y)
+f494: 14 50 20 a0+                 .bulk   $14,$50,$20,$a0,$00 ;red dragon (room, X, Y, movement, state)
+f499: 19 50 20 a0+                 .bulk   $19,$50,$20,$a0,$00 ;yellow dragon (room, X, Y, movement, state)
+f49e: 04 50 20 a0+                 .bulk   $04,$50,$20,$a0,$00 ;green dragon (room, X, Y, movement, state)
+f4a3: 0e 80 20                     .bulk   $0e,$80,$20         ;magnet (room, X, Y)
+f4a6: 11 20 20                     .bulk   $11,$20,$20         ;sword (room, X, Y)
+f4a9: 14 30 20                     .bulk   $14,$30,$20         ;chalice (room, X, Y)
+f4ac: 0b 40 40                     .bulk   $0b,$40,$40         ;bridge (room, X, Y)
+f4af: 09 20 40                     .bulk   $09,$20,$40         ;yellow key (room, X, Y)
+f4b2: 06 20 40                     .bulk   $06,$20,$40         ;white key (room, X, Y)
+f4b5: 19 20 40                     .bulk   $19,$20,$40         ;black key (room, X, Y)
+f4b8: 1c                           .dd1    $1c                 ;portcullis state
+f4b9: 1c                           .dd1    $1c                 ;portcullis state
+f4ba: 1c                           .dd1    $1c                 ;portcullis state
+f4bb: 02 20 20 90+                 .bulk   $02,$20,$20,$90,$00 ;bat (room, X, Y, movement, state)
+f4c0: 78 00                        .bulk   $78,$00             ;bat (carrying, fed-up)
+
+                   ; check ball collisions and move ball
+f4c2: a5 36        BallMovement    lda     CXBLPF              ;3
+f4c4: 29 80                        and     #$80                ;2  get ball-playfield collision
+f4c6: d0 2d                        bne     PlayerCollision     ;2+ branch if collision (player-wall)
+f4c8: a5 34                        lda     CXM0FB              ;3
+f4ca: 29 40                        and     #$40                ;2  get ball-missile00 collision
+f4cc: d0 27                        bne     PlayerCollision     ;2+ branch if collision (player-left thin)
+f4ce: a5 35                        lda     CXM1FB              ;3
+f4d0: 29 40                        and     #$40                ;2  get ball-missile01 collision
+f4d2: f0 06                        beq     @BallMove_1         ;2+ branch if no collision
+f4d4: a5 96                        lda     $96                 ;3  if Object2 (to print) is
+f4d6: c9 87                        cmp     #$87                ;2   not the black dot then collide
+f4d8: d0 1b                        bne     PlayerCollision     ;2+
+f4da: a5 32        @BallMove_1     lda     CXP0FB              ;3
+f4dc: 29 40                        and     #$40                ;2  get ball-player00 collision
+f4de: f0 06                        beq     @BallMove_2         ;2+ if no collision then branch
+f4e0: a5 95                        lda     $95                 ;3  if Object1 (to print is)
+f4e2: c9 00                        cmp     #$00                ;2   not the invisible surround then
+f4e4: d0 0f                        bne     PlayerCollision     ;2+  branch (collision)
+f4e6: a5 33        @BallMove_2     lda     CXP1FB              ;3
+f4e8: 29 40                        and     #$40                ;2  get ball-player01 collision
+f4ea: f0 33                        beq     NoCollision         ;3+ if no collision then branch
+f4ec: a5 96                        lda     $96                 ;3  if player 01 to print is
+f4ee: c9 00                        cmp     #$00                ;2   not the invisible surround then
+f4f0: d0 03                        bne     PlayerCollision     ;2+  branch (collision)
+f4f2: 4c 1f f5                     jmp     NoCollision         ;3
+
+                   ; player collided (with something)
+f4f5: c0 02        PlayerCollision cpy     #$02                ;2  are we checking for the bridge?
+f4f7: d0 36                        bne     ReadStick           ;3+ if not, branch
+f4f9: a5 9d                        lda     $9d                 ;3  get the object being carried
+f4fb: c9 5a                        cmp     #$5a                ;2  branch if it is the bridge
+f4fd: f0 30                        beq     ReadStick           ;3+
+f4ff: a5 8a                        lda     $8a                 ;3  get the current room
+f501: c5 bc                        cmp     $bc                 ;3  is the bridge in this room?
+f503: d0 2a                        bne     ReadStick           ;2+ if not branch
+                   ; check going through the bridge
+f505: a5 8b                        lda     $8b                 ;3  get the ball's X coordinate
+f507: 38                           sec                         ;2
+f508: e5 bd                        sbc     $bd                 ;3  subtract the bridge's X coordinate
+f50a: c9 0a                        cmp     #$0a                ;2  if less than $0A then forget it
+f50c: 90 21                        bcc     ReadStick           ;2+
+f50e: c9 17                        cmp     #$17                ;2  if more than $17 then forget it
+f510: b0 1d                        bcs     ReadStick           ;2+
+f512: a5 be                        lda     $be                 ;3  get the bridge's Y coordinate
+f514: 38                           sec                         ;2
+f515: e5 8c                        sbc     $8c                 ;3  subtract the ball's Y coordinate
+f517: c9 fc                        cmp     #$fc                ;2
+f519: b0 04                        bcs     NoCollision         ;2+ if more than $FC then going through bridge
+f51b: c9 19                        cmp     #$19                ;2  if more than $19 then forget it
+f51d: b0 10                        bcs     ReadStick           ;2+
+                   ; no collision (and going through bridge)
+f51f: a9 ff        NoCollision     lda     #$ff                ;2  reset the joystick input
+f521: 85 99                        sta     $99                 ;3
+f523: a5 8a                        lda     $8a                 ;3  get the current room
+f525: 85 e2                        sta     $e2                 ;3   and store temporarily
+f527: a5 8b                        lda     $8b                 ;3  get the ball's X coordinate
+f529: 85 e3                        sta     $e3                 ;3   and store temporarily
+f52b: a5 8c                        lda     $8c                 ;3  get the ball's Y coordinate
+f52d: 85 e4                        sta     $e4                 ;3   and store temporarily
+                   ; read sticks
+f52f: c0 00        ReadStick       cpy     #$00                ;2  ???is game in first phase?
+f531: d0 05                        bne     @ReadStick_2        ;2+ if not, don't bother with joystick read
+f533: ad 80 02                     lda     SWCHA               ;4  read joysticks
+f536: 85 99                        sta     $99                 ;3   and store value
+f538: a5 e2        @ReadStick_2    lda     $e2                 ;3  get temporary room
+f53a: 85 8a                        sta     $8a                 ;3   and make it the current room
+f53c: a5 e3                        lda     $e3                 ;3  get temporary X coordinate
+f53e: 85 8b                        sta     $8b                 ;3   and make it the man's X coordinate
+f540: a5 e4                        lda     $e4                 ;3  get temporary Y coordinate
+f542: 85 8c                        sta     $8c                 ;3   and make it the man's Y coordinate
+f544: a5 99                        lda     $99                 ;3  get the joystick position
+f546: 19 53 f5                     ora     ReadStick_3,y       ;4+ merge out movement not allowed in this phase
+f549: 85 9b                        sta     $9b                 ;3  and store cooked movement
+f54b: a0 03                        ldy     #$03                ;2  set the delta for the ball
+f54d: a2 8a                        ldx     #$8a                ;2  point to ball's coordinates
+f54f: 20 ff f5                     jsr     MoveGroundObject    ;6  move the ball
+f552: 60                           rts                         ;6
+
+                   ; joystick merge values
+f553: 00 c0 30     ReadStick_3     .bulk   $00,$c0,$30         ;no change, no horizontal, no vertical
+
+                   ; deal with object pickup and putdown
+f556: 26 3c        PickupPutdown   rol     INPT4               ;5  get joystick trigger
+f558: 66 d7                        ror     $d7                 ;5  merge into joystick record
+f55a: a5 d7                        lda     $d7                 ;3  get joystick record
+f55c: 29 c0                        and     #$c0                ;2  merge out previous presses
+f55e: c9 40                        cmp     #$40                ;2  was it previously pressed?
+f560: d0 10                        bne     @PickupPutdown_2    ;2+ if not branch
+f562: a9 a2                        lda     #$a2                ;2
+f564: c5 9d                        cmp     $9d                 ;3  if nothing is being carried
+f566: f0 0a                        beq     @PickupPutdown_2    ;2+  then branch
+f568: 85 9d                        sta     $9d                 ;3  drop object
+f56a: a9 04                        lda     #$04                ;2  set noise type to four
+f56c: 85 e0                        sta     $e0                 ;3
+f56e: a9 04                        lda     #$04                ;2  set noise count to four
+f570: 85 df                        sta     $df                 ;3
+                   @PickupPutdown_2
+f572: a9 ff                        lda     #$ff                ;2  ????
+f574: 85 98                        sta     $98                 ;3
+                   ; check for collision
+f576: a5 32                        lda     CXP0FB              ;3
+f578: 29 40                        and     #$40                ;2  get Ball-Player00 collision
+f57a: f0 07                        beq     @PickupPutdown_3    ;2+ if nothing occurred then branch
+                   ; with Player00
+f57c: a5 95                        lda     $95                 ;3  get type of Player00
+f57e: 85 97                        sta     $97                 ;3   and store
+f580: 4c 93 f5                     jmp     CollisionDetected   ;3  deal with collision
+
+                   @PickupPutdown_3
+f583: a5 33                        lda     CXP1FB              ;3
+f585: 29 40                        and     #$40                ;2  get Ball-Player01 collision
+f587: f0 07                        beq     @PickupPutdown_4    ;2+ if nothing has happened, branch
+f589: a5 96                        lda     $96                 ;3  get type of Player01
+f58b: 85 97                        sta     $97                 ;3   and store
+f58d: 4c 93 f5                     jmp     CollisionDetected   ;3  deal with collision
+
+                   @PickupPutdown_4
+f590: 4c d3 f5                     jmp     NoObject            ;3  deal with no collision (return)
+
+                   CollisionDetected
+f593: a6 97                        ldx     $97                 ;3  get the object collided with
+f595: 20 e4 f2                     jsr     GetObjectAddress    ;6  get its dynamic information
+f598: a5 97                        lda     $97                 ;3  get the object collided with
+f59a: c9 51                        cmp     #$51                ;2  is it carriable?
+f59c: 90 35                        bcc     NoObject            ;2+ if not, branch
+f59e: a0 00                        ldy     #$00                ;2
+f5a0: b1 93                        lda     ($93),y             ;5+ get the object's room
+f5a2: c5 8a                        cmp     $8a                 ;3  is it in the current room?
+f5a4: d0 2d                        bne     NoObject            ;2+ if not, branch
+f5a6: a5 97                        lda     $97                 ;3  get the object collided with
+f5a8: c5 9d                        cmp     $9d                 ;3  is it the object being carried?
+f5aa: f0 08                        beq     PickupObject        ;2+ if so, branch (and actually pick it up)
+f5ac: a9 05                        lda     #$05                ;2  set noise type to five
+f5ae: 85 e0                        sta     $e0                 ;3
+f5b0: a9 04                        lda     #$04                ;2  set noise count to four
+f5b2: 85 df                        sta     $df                 ;3
+f5b4: a5 97        PickupObject    lda     $97                 ;3  set the object as being
+f5b6: 85 9d                        sta     $9d                 ;3   carried
+f5b8: a6 93                        ldx     $93                 ;3  get the dynamic address low byte
+f5ba: a0 06                        ldy     #$06                ;2
+f5bc: a5 99                        lda     $99                 ;3  ????
+f5be: 20 ac f6                     jsr     MoveObjectDelta     ;6  ????
+f5c1: a0 01                        ldy     #$01                ;2
+f5c3: b1 93                        lda     ($93),y             ;5+ get the object's X coordinate
+f5c5: 38                           sec                         ;2
+f5c6: e5 8b                        sbc     $8b                 ;3  subtract the ball's X coordinate
+f5c8: 85 9e                        sta     $9e                 ;3   and store the difference
+f5ca: a0 02                        ldy     #$02                ;2
+f5cc: b1 93                        lda     ($93),y             ;5+ get the object's Y coordinate
+f5ce: 38                           sec                         ;2
+f5cf: e5 8c                        sbc     $8c                 ;3  subtract the Balls' Y coordinate
+f5d1: 85 9f                        sta     $9f                 ;3   and store the difference
+                   ; no collision
+f5d3: 60           NoObject        rts                         ;6
+
+                   ; move the carried object
+                   MoveCarriedObject
+f5d4: a6 9d                        ldx     $9d                 ;3  get the object being carried
+f5d6: e0 a2                        cpx     #$a2                ;2  if nothing then branch (return)
+f5d8: f0 24                        beq     @MoveCarriedObject_2 ;2+
+f5da: 20 e4 f2                     jsr     GetObjectAddress    ;6  get its dynamic information
+f5dd: a0 00                        ldy     #$00                ;2
+f5df: a5 8a                        lda     $8a                 ;3  get the current room
+f5e1: 91 93                        sta     ($93),y             ;6   and store the object's current room
+f5e3: a0 01                        ldy     #$01                ;2
+f5e5: a5 8b                        lda     $8b                 ;3  get the ball's X coordinate
+f5e7: 18                           clc                         ;2
+f5e8: 65 9e                        adc     $9e                 ;3  add the X difference
+f5ea: 91 93                        sta     ($93),y             ;6   and store as the object's X coordinate
+f5ec: a0 02                        ldy     #$02                ;2
+f5ee: a5 8c                        lda     $8c                 ;3  get the ball's Y coordinate
+f5f0: 18                           clc                         ;2
+f5f1: 65 9f                        adc     $9f                 ;3  add the Y difference
+f5f3: 91 93                        sta     ($93),y             ;6   and store as the object's Y coordinate
+f5f5: a0 00                        ldy     #$00                ;2  set no delta
+f5f7: a9 ff                        lda     #$ff                ;2  set no movement
+f5f9: a6 93                        ldx     $93                 ;3  get the object's dynamic address
+f5fb: 20 ff f5                     jsr     MoveGroundObject    ;6  move the object
+                   @MoveCarriedObject_2
+f5fe: 60                           rts                         ;6
+
+                   ; move the object
+                   MoveGroundObject
+f5ff: 20 ac f6                     jsr     MoveObjectDelta     ;6  move the object by delta
+f602: a0 02                        ldy     #$02                ;2  set to do the three
+                   @MoveGroundObject_2
+f604: 84 9a                        sty     $9a                 ;3   portcullises
+f606: b9 c8 00                     lda     $00c8,y             ;4+ get the portal state
+f609: c9 1c                        cmp     #$1c                ;2  is it in a closed state?
+f60b: f0 22                        beq     GetPortal           ;2+ if not, next portal
+                   ; deal with object moving out of a castle
+f60d: a4 9a                        ldy     $9a                 ;3  get port number
+f60f: b5 00                        lda     $00,x               ;4  get object's room number
+f611: d9 ad f9                     cmp     EntryRoomOffsets,y  ;4+ is it in a castle entry room?
+f614: d0 19                        bne     GetPortal           ;2+ if not, next portal
+f616: b5 02                        lda     $02,x               ;4  get the object's Y coordinate
+f618: c9 0d                        cmp     #$0d                ;2  is it above $0D i.e. at the bottom?
+f61a: 10 13                        bpl     GetPortal           ;2+ if so then branch
+f61c: b9 b0 f9                     lda     CastleRoomOffsets,y ;4+ get the castle room
+f61f: 95 00                        sta     $00,x               ;4  and put the object in the castle room
+f621: a9 50                        lda     #$50                ;2
+f623: 95 01                        sta     $01,x               ;4  set the object's new X coordinate
+f625: a9 2c                        lda     #$2c                ;2
+f627: 95 02                        sta     $02,x               ;4  set the new object's Y coordinate
+f629: a9 01                        lda     #$01                ;2
+f62b: 99 c8 00                     sta     $00c8,y             ;5  set the portcullis state to 01
+f62e: 60                           rts                         ;6
+
+f62f: a4 9a        GetPortal       ldy     $9a                 ;3  get the portcullis number
+f631: 88                           dey                         ;2   goto next,
+f632: 10 d0                        bpl     @MoveGroundObject_2 ;2+  and continue
+                   ; check and deal with Up
+f634: b5 02                        lda     $02,x               ;4  get the object's Y coordinate
+f636: c9 6a                        cmp     #$6a                ;2  has it reached above the top?
+f638: 30 09                        bmi     DealWithLeft        ;2+ if not, branch
+f63a: a9 0d                        lda     #$0d                ;2  set new Y coordinate to bottom
+f63c: 95 02                        sta     $02,x               ;4
+f63e: a0 05                        ldy     #$05                ;2  get the direction wanted
+f640: 4c 9f f6                     jmp     GetNewRoom          ;3  go and get new room
+
+                   ; check and deal with left
+f643: b5 01        DealWithLeft    lda     $01,x               ;4  get the object's X coordinate
+f645: c9 03                        cmp     #$03                ;2  is it three or less?
+f647: 90 07                        bcc     @DealWithLeft_2     ;2+ if so, branch (off to left)
+f649: c9 f0                        cmp     #$f0                ;2  is it $F0 or more?
+f64b: b0 03                        bcs     @DealWithLeft_2     ;2+ if so, branch (off to right)
+f64d: 4c 62 f6                     jmp     DealWithDown        ;3
+
+f650: e0 8a        @DealWithLeft_2 cpx     #$8a                ;2  are we dealing with the ball?
+f652: f0 05                        beq     @DealWithLeft_3     ;2+ if so, branch
+f654: a9 9a                        lda     #$9a                ;2  set new X coordinate for the others
+f656: 4c 5b f6                     jmp     @DealWithLeft_4     ;3
+
+f659: a9 9e        @DealWithLeft_3 lda     #$9e                ;2  set new X coordinate for the ball
+f65b: 95 01        @DealWithLeft_4 sta     $01,x               ;4  store the next X coordinate
+f65d: a0 08                        ldy     #$08                ;2  and get the direction wanted
+f65f: 4c 9f f6                     jmp     GetNewRoom          ;3  go and get new room
+
+                   ; check and deal with Down
+f662: b5 02        DealWithDown    lda     $02,x               ;4  get object's Y coordinate
+f664: c9 0d                        cmp     #$0d                ;2  if it's greater than $0D then
+f666: b0 09                        bcs     DealWithRight       ;2+  branch
+f668: a9 69                        lda     #$69                ;2  set new Y coordinate
+f66a: 95 02                        sta     $02,x               ;4
+f66c: a0 07                        ldy     #$07                ;2  get the direction wanted
+f66e: 4c 9f f6                     jmp     GetNewRoom          ;3  go and get new room
+
+                   ; check and deal with right
+f671: b5 01        DealWithRight   lda     $01,x               ;4  get the object's X coordinate
+f673: e0 8a                        cpx     #$8a                ;2  are we dealing with the ball
+f675: d0 1b                        bne     @DealWithRight_2    ;2+ branch if not
+f677: c9 9f                        cmp     #$9f                ;2  has the object reached the right?
+f679: 90 30                        bcc     MovementReturn      ;2+ branch if not
+f67b: b5 00                        lda     $00,x               ;4  get the Ball's room
+f67d: c9 03                        cmp     #$03                ;2  is it room #3 (right to secret room)
+f67f: d0 15                        bne     @DealWithRight_3    ;2+ branch if not
+f681: a5 a1                        lda     $a1                 ;3  check the room of the black dot
+f683: c9 15                        cmp     #$15                ;2  is it in the hidden room area?
+f685: f0 0f                        beq     @DealWithRight_3    ;2+ if so, branch
+                   ; manually change to secret room
+f687: a9 1e                        lda     #$1e                ;2  set room to secret room
+f689: 95 00                        sta     $00,x               ;4  and make it current
+f68b: a9 03                        lda     #$03                ;2  set the X coordinate
+f68d: 95 01                        sta     $01,x               ;4
+f68f: 4c ab f6                     jmp     MovementReturn      ;3  and exit
+
+                   @DealWithRight_2
+f692: c9 9b                        cmp     #$9b                ;2  has the object reached the right of the screen?
+f694: 90 15                        bcc     MovementReturn      ;2+ branch if not (no room change)
+                   @DealWithRight_3
+f696: a9 03                        lda     #$03                ;2  set the next X coordinate
+f698: 95 01                        sta     $01,x               ;4
+f69a: a0 06                        ldy     #$06                ;2  and get the direction wanted
+f69c: 4c 9f f6                     jmp     GetNewRoom          ;3  get the new room
+
+                   ; get new room
+f69f: b5 00        GetNewRoom      lda     $00,x               ;4  get the object's room
+f6a1: 20 71 f2                     jsr     RoomNumToAddress    ;6  convert it to an address
+f6a4: b1 93                        lda     ($93),y             ;5+ get the adjacent room
+f6a6: 20 d5 f6                     jsr     AdjustRoomLevel     ;6  deal with the level differences
+f6a9: 95 00                        sta     $00,x               ;4   and store as new object's room
+f6ab: 60           MovementReturn  rts                         ;6
+
+                   ; move the object in direction by delta
+f6ac: 85 9b        MoveObjectDelta sta     $9b                 ;3  store direction wanted
+f6ae: 88           @MoveObject_2   dey                         ;2  count down the delta
+f6af: 30 23                        bmi     @MoveObject_7       ;2+
+f6b1: a5 9b                        lda     $9b                 ;3  get direction wanted
+f6b3: 29 80                        and     #$80                ;2  check for right move
+f6b5: d0 02                        bne     @MoveObject_3       ;2+ if no move right then branch
+f6b7: f6 01                        inc     $01,x               ;6  increment the X coordinate
+f6b9: a5 9b        @MoveObject_3   lda     $9b                 ;3  get the direction wanted
+f6bb: 29 40                        and     #$40                ;2  check for left move
+f6bd: d0 02                        bne     @MoveObject_4       ;2+ if no move left then branch
+f6bf: d6 01                        dec     $01,x               ;6  decrement the X coordinate
+f6c1: a5 9b        @MoveObject_4   lda     $9b                 ;3  get the direction wanted
+f6c3: 29 10                        and     #$10                ;2  check for move up
+f6c5: d0 02                        bne     @MoveObject_5       ;2+ if no move up then branch
+f6c7: f6 02                        inc     $02,x               ;6
+f6c9: a5 9b        @MoveObject_5   lda     $9b                 ;3  get direction wanted
+f6cb: 29 20                        and     #$20                ;2  check for move down
+f6cd: d0 02                        bne     @MoveObject_6       ;2+ if no move down then branch
+f6cf: d6 02                        dec     $02,x               ;6  decrement the Y coordinate
+f6d1: 4c ae f6     @MoveObject_6   jmp     @MoveObject_2       ;3  keep going until delta finished
+
+f6d4: 60           @MoveObject_7   rts                         ;6
+
+                   ; adjust room for different levels
+f6d5: c9 80        AdjustRoomLevel cmp     #$80                ;2  is the room number
+f6d7: 90 0f                        bcc     @AdjustRoomLevel_2  ;2+  above $80?
+f6d9: 38                           sec                         ;2
+f6da: e9 80                        sbc     #$80                ;2  remove the $80 flag and
+f6dc: 85 d8                        sta     $d8                 ;3   store the room number
+f6de: a5 dd                        lda     $dd                 ;3  get the level number
+f6e0: 4a                           lsr     A                   ;2  divide it by two
+f6e1: 18                           clc                         ;2
+f6e2: 65 d8                        adc     $d8                 ;3  add to the original room
+f6e4: a8                           tay                         ;2
+f6e5: b9 32 ff                     lda     RoomDiffs,y         ;4+ use as an offset to get the next room
+                   @AdjustRoomLevel_2
+f6e8: 60                           rts                         ;6
+
+                   ; get player-ball collision
+f6e9: c5 95        PBCollision     cmp     $95                 ;3  is it the first object?
+f6eb: f0 07                        beq     @PBCollision_2      ;2+ yes, then branch
+f6ed: c5 96                        cmp     $96                 ;3  is it the second object?
+f6ef: f0 08                        beq     @PBCollision_3      ;2+ yes, then branch
+f6f1: a9 00                        lda     #$00                ;2  otherwise nothing
+f6f3: 60                           rts                         ;6
+
+f6f4: a5 32        @PBCollision_2  lda     CXP0FB              ;3  get player00-ball collision
+f6f6: 29 40                        and     #$40                ;2
+f6f8: 60                           rts                         ;6
+
+f6f9: a5 33        @PBCollision_3  lda     CXP1FB              ;3  get player01-ball collision
+f6fb: 29 40                        and     #$40                ;2
+f6fd: 60                           rts                         ;6
+
+                   ; find which object has hit object wanted
+f6fe: a5 37        FindObjHit      lda     CXPPMM              ;3  get player00-player01
+f700: 29 80                        and     #$80                ;2   collision
+f702: f0 08                        beq     @FindObjHit_2       ;2+ if nothing, branch
+f704: e4 95                        cpx     $95                 ;3  is object 1 the one being hit?
+f706: f0 07                        beq     @FindObjHit_3       ;2+ if so, branch
+f708: e4 96                        cpx     $96                 ;3  is object 2 the one being hit?
+f70a: f0 06                        beq     @FindObjHit_4       ;2+ if so, branch
+f70c: a9 a2        @FindObjHit_2   lda     #$a2                ;2  therefore select the other
+f70e: 60                           rts                         ;6
+
+f70f: a5 96        @FindObjHit_3   lda     $96                 ;3  therefore select the other
+f711: 60                           rts                         ;6
+
+f712: a5 95        @FindObjHit_4   lda     $95                 ;3  therefore select the other
+f714: 60                           rts                         ;6
+
+                   ; move object
+f715: 20 28 f7     MoveGameObject  jsr     GetLinkedObject     ;6  get linked object and movement
+f718: a6 d5                        ldx     $d5                 ;3  get dynamic data address
+f71a: a5 9b                        lda     $9b                 ;3  get movement
+f71c: d0 02                        bne     @MoveGameObject_2   ;2+ if movement then branch
+f71e: b5 03                        lda     $03,x               ;4  use old movement
+                   @MoveGameObject_2
+f720: 95 03                        sta     $03,x               ;4  store the new movement
+f722: a4 d4                        ldy     $d4                 ;3  get the object's delta
+f724: 20 ff f5                     jsr     MoveGroundObject    ;6  move the object
+f727: 60                           rts                         ;6
+
+                   ; find linked object and get movement
+f728: a9 00        GetLinkedObject lda     #$00                ;2  set index to zero
+f72a: 85 e1                        sta     $e1                 ;3
+f72c: a4 e1        @GetLinkedObj_2 ldy     $e1                 ;3  get index
+f72e: b1 d2                        lda     ($d2),y             ;5+ get first object
+f730: aa                           tax                         ;2
+f731: c8                           iny                         ;2
+f732: b1 d2                        lda     ($d2),y             ;5+ get second object
+f734: a8                           tay                         ;2
+f735: b5 00                        lda     $00,x               ;4  get Object1's room
+f737: d9 00 00                     cmp     $0000,y             ;4+ compare the Object2's room
+f73a: d0 0c                        bne     @GetLinkedObj_3     ;2+ if not the same room then branch
+f73c: c4 d6                        cpy     $d6                 ;3  have we matched the second object
+f73e: f0 08                        beq     @GetLinkedObj_3     ;2+  for difficulty (if so, carry on)
+f740: e4 d6                        cpx     $d6                 ;3  have we matched the first object
+f742: f0 04                        beq     @GetLinkedObj_3     ;2+  for difficulty (if so, carry on)
+f744: 20 57 f7                     jsr     @GetLinkedObj_4     ;6  get object's movement
+f747: 60                           rts                         ;6
+
+f748: e6 e1        @GetLinkedObj_3 inc     $e1                 ;5  increment the index
+f74a: e6 e1                        inc     $e1                 ;5
+f74c: a4 e1                        ldy     $e1                 ;3  get the index number
+f74e: b1 d2                        lda     ($d2),y             ;5+ check for end of sequence
+f750: d0 da                        bne     @GetLinkedObj_2     ;2+ if not branch
+f752: a9 00                        lda     #$00                ;2  set no move if no
+f754: 85 9b                        sta     $9b                 ;3   linked object is found
+f756: 60                           rts                         ;6
+
+                   ; work out object's movement
+f757: a9 ff        @GetLinkedObj_4 lda     #$ff                ;2  set object movement to none
+f759: 85 9b                        sta     $9b                 ;3
+f75b: b9 00 00                     lda     $0000,y             ;4+ get Object2's room
+f75e: d5 00                        cmp     $00,x               ;4  compare it with object's room
+f760: d0 30                        bne     @GetLinkedObject_8  ;2+ if not the same, forget it
+f762: b9 01 00                     lda     $0001,y             ;4+ get Object2's X coordinate
+f765: d5 01                        cmp     $01,x               ;4  get Object1's X coordinate
+f767: 90 0b                        bcc     @GetLinkedObject_5  ;2+ if Object2 to left of Object1 then branch
+f769: f0 0f                        beq     @GetLinkedObject_6  ;2+ if Object2 on Object1 then branch
+f76b: a5 9b                        lda     $9b                 ;3  get object movement
+f76d: 29 7f                        and     #$7f                ;2  signal a move right
+f76f: 85 9b                        sta     $9b                 ;3
+f771: 4c 7a f7                     jmp     @GetLinkedObject_6  ;3  now try vertical
+
+                   @GetLinkedObject_5
+f774: a5 9b                        lda     $9b                 ;3  get object movement
+f776: 29 bf                        and     #$bf                ;2  signal a move left
+f778: 85 9b                        sta     $9b                 ;3
+                   @GetLinkedObject_6
+f77a: b9 02 00                     lda     $0002,y             ;4+ get Object2's Y coordinate
+f77d: d5 02                        cmp     $02,x               ;4  get Object1's X coordinate
+f77f: 90 0b                        bcc     @GetLinkedObject_7  ;2+ if Object2 below Object1 then branch
+f781: f0 0f                        beq     @GetLinkedObject_8  ;2+ if Object2 on Object1 then branch
+f783: a5 9b                        lda     $9b                 ;3  get object movement
+f785: 29 ef                        and     #$ef                ;2  signal a move up
+f787: 85 9b                        sta     $9b                 ;3
+f789: 4c 92 f7                     jmp     @GetLinkedObject_8  ;3  jump to finish
+
+                   @GetLinkedObject_7
+f78c: a5 9b                        lda     $9b                 ;3  get object movement
+f78e: 29 df                        and     #$df                ;2  signal a move down
+f790: 85 9b                        sta     $9b                 ;3
+                   @GetLinkedObject_8
+f792: a5 9b                        lda     $9b                 ;3  get the move
+f794: 60                           rts                         ;6
+
+                   ; move the red dragon
+f795: a9 a7        MoveRedDragon   lda     #<RedDragMatrix     ;2
+f797: 85 d2                        sta     $d2                 ;3  set the low address of object store
+f799: a9 f7                        lda     #>RedDragMatrix     ;2
+f79b: 85 d3                        sta     $d3                 ;3  set the high address of object store
+f79d: a9 03                        lda     #$03                ;2
+f79f: 85 d4                        sta     $d4                 ;3  set the dragon's delta
+f7a1: a2 36                        ldx     #$36                ;2  select dragon #1: red
+f7a3: 20 ea f7                     jsr     MoveDragon          ;6
+f7a6: 60                           rts                         ;6
+
+                   ; red dragon's object matrix
+f7a7: b6 a4        RedDragMatrix   .bulk   $b6,$a4             ;sword, red dragon
+f7a9: a4 8a                        .bulk   $a4,$8a             ;red dragon, ball
+f7ab: a4 b9                        .bulk   $a4,$b9             ;red dragon, chalice
+f7ad: a4 c2                        .bulk   $a4,$c2             ;red dragon, white key
+f7af: 00                           .bulk   $00
+
+                   ; move the yellow dragon
+                   MoveYellowDragon
+f7b0: a9 c2                        lda     #<YelDragMatrix     ;2
+f7b2: 85 d2                        sta     $d2                 ;3  set the low address of object store
+f7b4: a9 f7                        lda     #>YelDragMatrix     ;2
+f7b6: 85 d3                        sta     $d3                 ;3  set the high address of object store
+f7b8: a9 02                        lda     #$02                ;2
+f7ba: 85 d4                        sta     $d4                 ;3  set the dragon's delta
+f7bc: a2 3f                        ldx     #$3f                ;2  select dragon #2: yellow
+f7be: 20 ea f7                     jsr     MoveDragon          ;6
+f7c1: 60                           rts                         ;6
+
+                   ; yellow dragon's object matrix
+f7c2: b6 a9        YelDragMatrix   .bulk   $b6,$a9             ;sword, yellow dragon
+f7c4: bf a9                        .bulk   $bf,$a9             ;yellow key, yellow dragon
+f7c6: a9 8a                        .bulk   $a9,$8a             ;yellow dragon, ball
+f7c8: a9 b9                        .bulk   $a9,$b9             ;yellow dragon, chalice
+f7ca: 00                           .bulk   $00
+
+                   ; move the green dragon
+f7cb: a9 dd        MoveGreenDragon lda     #<GreenDragMatrix   ;2
+f7cd: 85 d2                        sta     $d2                 ;3  set low address of object store
+f7cf: a9 f7                        lda     #>GreenDragMatrix   ;2
+f7d1: 85 d3                        sta     $d3                 ;3  set high address of object store
+f7d3: a9 02                        lda     #$02                ;2
+f7d5: 85 d4                        sta     $d4                 ;3  set the green dragon's delta
+f7d7: a2 48                        ldx     #$48                ;2  select dragon #3: green
+f7d9: 20 ea f7                     jsr     MoveDragon          ;6
+f7dc: 60                           rts                         ;6
+
+f7dd: b6 ae        GreenDragMatrix .bulk   $b6,$ae             ;sword, green dragon
+f7df: ae 8a                        .bulk   $ae,$8a             ;green dragon, ball
+f7e1: ae b9                        .bulk   $ae,$b9             ;green dragon, chalice
+f7e3: ae bc                        .bulk   $ae,$bc             ;green dragon, bridge
+f7e5: ae b3                        .bulk   $ae,$b3             ;green dragon, magnet
+f7e7: ae c5                        .bulk   $ae,$c5             ;green dragon, black key
+f7e9: 00                           .bulk   $00
+
+                   ; move a dragon
+f7ea: 86 a0        MoveDragon      stx     $a0                 ;3  save object we're dealing with
+f7ec: bd 44 ff                     lda     Store1,x            ;4+ get the object's dynamic data
+f7ef: aa                           tax                         ;2
+f7f0: b5 04                        lda     $04,x               ;4  get the object's state
+f7f2: c9 00                        cmp     #$00                ;2  is it in state 00 (normal #1)
+f7f4: d0 58                        bne     @MoveDragon_6       ;3+ branch if not
+                   ; dragon normal (state 1)
+f7f6: ad 82 02                     lda     SWCHB               ;4  read console switches
+f7f9: 29 80                        and     #$80                ;2  check for P1 difficulty
+f7fb: f0 05                        beq     @MoveDragon_2       ;3+ if amateur branch
+f7fd: a9 00                        lda     #$00                ;2  set hard - ignore nothing
+f7ff: 4c 04 f8                     jmp     @MoveDragon_3       ;3
+
+f802: a9 b6        @MoveDragon_2   lda     #$b6                ;2  set easy - ignore sword
+f804: 85 d6        @MoveDragon_3   sta     $d6                 ;3  store difficulty
+f806: 86 d5                        stx     $d5                 ;3  store dynamic data address
+f808: 20 15 f7                     jsr     MoveGameObject      ;6
+f80b: a5 a0                        lda     $a0                 ;3  get object
+f80d: 20 e9 f6                     jsr     PBCollision         ;6   and get the player-ball collision
+f810: f0 20                        beq     @MoveDragon_4       ;2+ if none then branch
+f812: ad 82 02                     lda     SWCHB               ;4  get console switches
+f815: 2a                           rol     A                   ;2  move P0 difficulty to
+f816: 2a                           rol     A                   ;2   bit 01 position
+f817: 2a                           rol     A                   ;2
+f818: 29 01                        and     #$01                ;2  mask it out
+f81a: 05 dd                        ora     $dd                 ;3  merge in the level number
+f81c: a8                           tay                         ;2  create lookup
+f81d: b9 9f f8                     lda     DragonDiff,y        ;4+ get new state
+f820: 95 04                        sta     $04,x               ;4  store as dragon's state (open mouthed)
+f822: a5 e3                        lda     $e3                 ;3
+f824: 95 01                        sta     $01,x               ;4  get temp ball X coord and store as dragon's
+f826: a5 e4                        lda     $e4                 ;3
+f828: 95 02                        sta     $02,x               ;4  get temp ball Y coord and store as dragon's
+f82a: a9 01                        lda     #$01                ;2
+f82c: 85 e0                        sta     $e0                 ;3  set noise type to 01
+f82e: a9 10                        lda     #$10                ;2
+f830: 85 df                        sta     $df                 ;3  set noise count to $10 i.e. make roar noise
+f832: 86 9a        @MoveDragon_4   stx     $9a                 ;3  store object's dynamic data address
+f834: a6 a0                        ldx     $a0                 ;3  get the object number
+f836: 20 fe f6                     jsr     FindObjHit          ;6  set if another object has hit the dragon
+f839: a6 9a                        ldx     $9a                 ;3  get the object address
+f83b: c9 51                        cmp     #$51                ;2  has the sword hit the dragon?
+f83d: d0 0c                        bne     @MoveDragon_5       ;2+ if not, branch
+f83f: a9 01                        lda     #$01                ;2  set the state to 01 (dead)
+f841: 95 04                        sta     $04,x               ;4
+f843: a9 03                        lda     #$03                ;2  set sound three
+f845: 85 e0                        sta     $e0                 ;3
+f847: a9 10                        lda     #$10                ;2  set a noise count of $10
+f849: 85 df                        sta     $df                 ;3
+f84b: 4c 9e f8     @MoveDragon_5   jmp     @MoveDragon_9       ;3  jump to finish
+
+f84e: c9 01        @MoveDragon_6   cmp     #$01                ;2  is it in state 01 (dead)
+f850: f0 4c                        beq     @MoveDragon_9       ;2+ branch if so (return)
+f852: c9 02                        cmp     #$02                ;2  is it in state 02 (normal #2)
+f854: d0 1b                        bne     @MoveDragon_7       ;2+ branch if not
+                   ; normal dragon state 2 (eaten ball)
+f856: b5 00                        lda     $00,x               ;4  get the dragon's current room
+f858: 85 8a                        sta     $8a                 ;3  store as the ball's current room
+f85a: 85 e2                        sta     $e2                 ;3   and previous room
+f85c: b5 01                        lda     $01,x               ;4  get the dragon's X coordinate
+f85e: 18                           clc                         ;2
+f85f: 69 03                        adc     #$03                ;2  adjust
+f861: 85 8b                        sta     $8b                 ;3   and store as the ball's X coordinate
+f863: 85 e3                        sta     $e3                 ;3   and previous X coordinate
+f865: b5 02                        lda     $02,x               ;4  get the dragon's Y coordinate
+f867: 38                           sec                         ;2
+f868: e9 0a                        sbc     #$0a                ;2  adjust
+f86a: 85 8c                        sta     $8c                 ;3   and store as the ball's Y coordinate
+f86c: 85 e4                        sta     $e4                 ;3   and the previous Y coordinate
+f86e: 4c 9e f8                     jmp     @MoveDragon_9       ;3
+
+                   ; dragon roaring
+f871: f6 04        @MoveDragon_7   inc     $04,x               ;6  increment the dragon's state
+f873: b5 04                        lda     $04,x               ;4  get its state
+f875: c9 fc                        cmp     #$fc                ;2  is it near the end?
+f877: 90 25                        bcc     @MoveDragon_9       ;2+ if not, branch
+f879: a5 a0                        lda     $a0                 ;3  get the dragon's number
+f87b: 20 e9 f6                     jsr     PBCollision         ;6  check if the ball is colliding
+f87e: f0 1e                        beq     @MoveDragon_9       ;2+ if not, branch
+f880: a9 02                        lda     #$02                ;2  set the state to state 02: eaten
+f882: 95 04                        sta     $04,x               ;4
+f884: a9 02                        lda     #$02                ;2  set noise two
+f886: 85 e0                        sta     $e0                 ;3
+f888: a9 10                        lda     #$10                ;2  set the count of noise to $10
+f88a: 85 df                        sta     $df                 ;3
+f88c: a9 9b                        lda     #$9b                ;2  get the maximum X coordinate
+f88e: d5 01                        cmp     $01,x               ;4  compare with the dragon's X coordinate
+f890: f0 04                        beq     @MoveDragon_8       ;2+
+f892: b0 02                        bcs     @MoveDragon_8       ;2+
+f894: 95 01                        sta     $01,x               ;4  if too large then use it
+f896: a9 17        @MoveDragon_8   lda     #$17                ;2  set minimum Y coordinate
+f898: d5 02                        cmp     $02,x               ;4  compare with the dragon's Y coordinate
+f89a: 90 02                        bcc     @MoveDragon_9       ;2+
+f89c: 95 02                        sta     $02,x               ;4  if too small, set as dragon's Y coordinate
+f89e: 60           @MoveDragon_9   rts                         ;6
+
+                   ; dragon difficulty
+f89f: d0 e8        DragonDiff      .bulk   $d0,$e8             ;level 1: Am, Pro
+f8a1: f0 f6                        .bulk   $f0,$f6             ;level 2: Am, Pro
+f8a3: f0 f6                        .bulk   $f0,$f6             ;level 3: Am, Pro
+
+                   ; move bat
+f8a5: e6 cf        MoveBat         inc     $cf                 ;5  put bat in the next state
+f8a7: a5 cf                        lda     $cf                 ;3  get the bat state
+f8a9: c9 08                        cmp     #$08                ;2  has it reached the maximum?
+f8ab: d0 04                        bne     @MoveBat_2          ;2+
+f8ad: a9 00                        lda     #$00                ;2  if so, reset the bat state
+f8af: 85 cf                        sta     $cf                 ;3
+f8b1: a5 d1        @MoveBat_2      lda     $d1                 ;3  get the bat fed-up value
+f8b3: f0 0e                        beq     @MoveBat_3          ;2+ if bat fed-up then branch
+f8b5: e6 d1                        inc     $d1                 ;5  increment its value for next time
+f8b7: a5 ce                        lda     $ce                 ;3  get the bat's movement
+f8b9: a2 cb                        ldx     #$cb                ;2  position to bat
+f8bb: a0 03                        ldy     #$03                ;2  get the bat's deltas
+f8bd: 20 ff f5                     jsr     MoveGroundObject    ;6  move the bat
+f8c0: 4c 08 f9                     jmp     @MoveBat_4          ;3  update the bat's object
+
+                   ; bat fed-up
+f8c3: a9 cb        @MoveBat_3      lda     #$cb                ;2  store the bat's dynamic data address
+f8c5: 85 d5                        sta     $d5                 ;3
+f8c7: a9 03                        lda     #$03                ;2  set the bat's delta
+f8c9: 85 d4                        sta     $d4                 ;3
+f8cb: a9 27                        lda     #<BatMatrix         ;2  set the low address of object store
+f8cd: 85 d2                        sta     $d2                 ;3
+f8cf: a9 f9                        lda     #>BatMatrix         ;2  set the high address of object store
+f8d1: 85 d3                        sta     $d3                 ;3
+f8d3: a5 d0                        lda     $d0                 ;3  get object being carried by Bat,
+f8d5: 85 d6                        sta     $d6                 ;3   and copy
+f8d7: 20 15 f7                     jsr     MoveGameObject      ;6  move the Bat
+f8da: a4 e1                        ldy     $e1                 ;3  get object linked index
+f8dc: b1 d2                        lda     ($d2),y             ;5+ look up the object found in the table
+f8de: f0 28                        beq     @MoveBat_4          ;3+ if nothing found then forget it
+f8e0: c8                           iny                         ;2
+f8e1: b1 d2                        lda     ($d2),y             ;5+ get the object wanted
+f8e3: aa                           tax                         ;2
+f8e4: b5 00                        lda     $00,x               ;4  get the object's room
+f8e6: c5 cb                        cmp     $cb                 ;3  is it the same as the Bat's?
+f8e8: d0 1e                        bne     @MoveBat_4          ;3+ if not forget it
+                   ; see if bat can pick up an object
+f8ea: b5 01                        lda     $01,x               ;4  get the object's X coordinate
+f8ec: 38                           sec                         ;2
+f8ed: e5 cc                        sbc     $cc                 ;3  find the difference with the Bat's
+f8ef: 18                           clc                         ;2   X coordinate
+f8f0: 69 04                        adc     #$04                ;2  adjust so Bat in middle of object
+f8f2: 29 f8                        and     #$f8                ;2  is Bat within seven pixels?
+f8f4: d0 12                        bne     @MoveBat_4          ;3+ if not, no pickup possible
+f8f6: b5 02                        lda     $02,x               ;4  get the object's Y coordinate
+f8f8: 38                           sec                         ;2
+f8f9: e5 cd                        sbc     $cd                 ;3  find the difference with the Bat's
+f8fb: 18                           clc                         ;2   Y coordinate
+f8fc: 69 04                        adc     #$04                ;2  adjust
+f8fe: 29 f8                        and     #$f8                ;2  is the Bat within seven pixels?
+f900: d0 06                        bne     @MoveBat_4          ;2+ if not, no pickup possible
+                   ; get object
+f902: 86 d0                        stx     $d0                 ;3  store object as being carried
+f904: a9 10                        lda     #$10                ;2  reset the bat fed-up time
+f906: 85 d1                        sta     $d1                 ;3
+                   ; move object being carried by bat
+f908: a6 d0        @MoveBat_4      ldx     $d0                 ;3  get object being carried by Bat
+f90a: a5 cb                        lda     $cb                 ;3  get the Bat's room
+f90c: 95 00                        sta     $00,x               ;4  store this as the object's room
+f90e: a5 cc                        lda     $cc                 ;3  get the Bat's X coordinate
+f910: 18                           clc                         ;2
+f911: 69 08                        adc     #$08                ;2  adjust to the right
+f913: 95 01                        sta     $01,x               ;4  make it the object's X coordinate
+f915: a5 cd                        lda     $cd                 ;3  get the Bat's Y coordinate
+f917: 95 02                        sta     $02,x               ;4  store is as the object's Y coordinate
+f919: a5 d0                        lda     $d0                 ;3  get the object being carried by the bat
+f91b: a4 9d                        ldy     $9d                 ;3  get the object being carried by the ball
+f91d: d9 44 ff                     cmp     Store1,y            ;4+ are they the same?
+f920: d0 04                        bne     @MoveBat_5          ;2+ if not branch
+f922: a9 a2                        lda     #$a2                ;2  set nothing being
+f924: 85 9d                        sta     $9d                 ;3   carried
+f926: 60           @MoveBat_5      rts                         ;6
+
+                   ; bat object matrix
+f927: cb b9        BatMatrix       .bulk   $cb,$b9             ;bat, chalice
+f929: cb b6                        .bulk   $cb,$b6             ;bat, sword
+f92b: cb bc                        .bulk   $cb,$bc             ;bat, bridge
+f92d: cb bf                        .bulk   $cb,$bf             ;bat, yellow key
+f92f: cb c2                        .bulk   $cb,$c2             ;bat, white key
+f931: cb c5                        .bulk   $cb,$c5             ;bat, black key
+f933: cb a4                        .bulk   $cb,$a4             ;bat, red dragon
+f935: cb a9                        .bulk   $cb,$a9             ;bat, yellow dragon
+f937: cb ae                        .bulk   $cb,$ae             ;bat, green dragon
+f939: cb b3                        .bulk   $cb,$b3             ;bat, magnet
+f93b: 00                           .bulk   $00
+
+                   ; deal with portcullis and collisions
+f93c: a0 02        Portals         ldy     #$02                ;2  for each portcullis
+f93e: be a7 f9     @Portals_2      ldx     PortOffsets,y       ;4+ get the portcullis' offset number
+f941: 20 fe f6                     jsr     FindObjHit          ;6  see if an object collided with it
+f944: 85 97                        sta     $97                 ;3  store that object
+f946: d9 aa f9                     cmp     KeyOffsets,y        ;4+ is it the associated key?
+f949: d0 04                        bne     @Portals_3          ;2+ if not then branch
+f94b: 98                           tya                         ;2  get the portcullis number
+f94c: aa                           tax                         ;2
+f94d: f6 c8                        inc     $c8,x               ;6  change its state to open it
+f94f: 98           @Portals_3      tya                         ;2  get the portcullis number
+f950: aa                           tax                         ;2
+f951: b5 c8                        lda     $c8,x               ;4  get the state
+f953: c9 1c                        cmp     #$1c                ;2  is it closed?
+f955: f0 31                        beq     @Portals_7          ;2+ yes - then branch
+f957: b9 a7 f9                     lda     PortOffsets,y       ;4+ get portcullis number
+f95a: 20 e9 f6                     jsr     PBCollision         ;6  get the player-ball collision
+f95d: f0 09                        beq     @Portals_4          ;2+ if not then branch
+f95f: a9 01                        lda     #$01                ;2  set the portcullis to closed
+f961: 95 c8                        sta     $c8,x               ;4
+f963: a2 8a                        ldx     #$8a                ;2  set to the castle
+f965: 4c 7f f9                     jmp     @Portals_6          ;3  put the ball in the castle
+
+f968: a5 97        @Portals_4      lda     $97                 ;3  get the object that hit the portcullis
+f96a: c9 a2                        cmp     #$a2                ;2  is it nothing?
+f96c: f0 0e                        beq     @Portals_5          ;2+ if so, branch
+f96e: a6 97                        ldx     $97                 ;3  get object
+f970: 84 9a                        sty     $9a                 ;3  save Y
+f972: 20 e4 f2                     jsr     GetObjectAddress    ;6  and find its dynamic address
+f975: a4 9a                        ldy     $9a                 ;3  retrieve Y
+f977: a6 93                        ldx     $93                 ;3  get object's address
+f979: 4c 7f f9                     jmp     @Portals_6          ;3  put object in the castle
+
+f97c: 4c 88 f9     @Portals_5      jmp     @Portals_7          ;3
+
+f97f: b9 ad f9     @Portals_6      lda     EntryRoomOffsets,y  ;4+ look up castle entry room for this port
+f982: 95 00                        sta     $00,x               ;4  make it the object's room
+f984: a9 10                        lda     #$10                ;2  give the object a new Y coordinate
+f986: 95 02                        sta     $02,x               ;4
+f988: 98           @Portals_7      tya                         ;2  get the portcullis number
+f989: aa                           tax                         ;2
+f98a: b5 c8                        lda     $c8,x               ;4  get its state
+f98c: c9 01                        cmp     #$01                ;2  is it open?
+f98e: f0 10                        beq     @Portals_8          ;2+ yes - then branch
+f990: c9 1c                        cmp     #$1c                ;2  is it closed?
+f992: f0 0c                        beq     @Portals_8          ;2+ yes - then branch
+f994: f6 c8                        inc     $c8,x               ;6  increment its state
+f996: b5 c8                        lda     $c8,x               ;4  get the state
+f998: c9 38                        cmp     #$38                ;2  has it reached the maximum state?
+f99a: d0 04                        bne     @Portals_8          ;2+ if not, branch
+f99c: a9 01                        lda     #$01                ;2  set to closed
+f99e: 95 c8                        sta     $c8,x               ;4   state
+f9a0: 88           @Portals_8      dey                         ;2  go to the next portcullis
+f9a1: 30 03                        bmi     @Portals_9          ;2+ branch if finished
+f9a3: 4c 3e f9                     jmp     @Portals_2          ;3  do next portcullis
+
+f9a6: 60           @Portals_9      rts                         ;6
+
+f9a7: 09 12 1b     PortOffsets     .bulk   $09,$12,$1b         ;portcullis #1, #2, #3
+f9aa: 63 6c 75     KeyOffsets      .bulk   $63,$6c,$75         ;keys (yellow, white, black)
+                   EntryRoomOffsets
+f9ad: 12 1a 1b                     .bulk   $12,$1a,$1b         ;castle entry rooms (yellow, white, black)
+                   CastleRoomOffsets
+f9b0: 11 0f 10                     .bulk   $11,$0f,$10         ;castle rooms (yellow, white, black)
+
+                   ; deal with magnet
+f9b3: a5 b5        Mag             lda     $b5                 ;3  get magnet's Y coordinate
+f9b5: 38                           sec                         ;2
+f9b6: e9 08                        sbc     #$08                ;2  adjust to its "poles"
+f9b8: 85 b5                        sta     $b5                 ;3
+f9ba: a9 00                        lda     #$00                ;2  con difficulty!
+f9bc: 85 d6                        sta     $d6                 ;3
+f9be: a9 da                        lda     #<MagnetMatrix      ;2  set low address of object store
+f9c0: 85 d2                        sta     $d2                 ;3
+f9c2: a9 f9                        lda     #>MagnetMatrix      ;2  set high address of object store
+f9c4: 85 d3                        sta     $d3                 ;3
+f9c6: 20 28 f7                     jsr     GetLinkedObject     ;6  get linked object and set movement
+f9c9: a5 9b                        lda     $9b                 ;3  get movement
+f9cb: f0 05                        beq     @Mag_2              ;2+ if none, then forget it
+f9cd: a0 01                        ldy     #$01                ;2  set delta to one
+f9cf: 20 ff f5                     jsr     MoveGroundObject    ;6  move object
+f9d2: a5 b5        @Mag_2          lda     $b5                 ;3  reset the magnet's
+f9d4: 18                           clc                         ;2   Y coordinate
+f9d5: 69 08                        adc     #$08                ;2
+f9d7: 85 b5                        sta     $b5                 ;3
+f9d9: 60                           rts                         ;6
+
+                   ; magnet object matrix
+f9da: bf b3        MagnetMatrix    .bulk   $bf,$b3             ;yellow key, magnet
+f9dc: c2 b3                        .bulk   $c2,$b3             ;white key, magnet
+f9de: c5 b3                        .bulk   $c5,$b3             ;black key, magnet
+f9e0: b6 b3                        .bulk   $b6,$b3             ;sword, magnet
+f9e2: bc b3                        .bulk   $bc,$b3             ;bridge, magnet
+f9e4: b9 b3                        .bulk   $b9,$b3             ;chalice, magnet
+f9e6: 00                           .bulk   $00
+
+                   ; deal with invisible surround moving
+f9e7: a5 8a        Surround        lda     $8a                 ;3  set the current room
+f9e9: 20 71 f2                     jsr     RoomNumToAddress    ;6  convert it to an address
+f9ec: a0 02                        ldy     #$02                ;2
+f9ee: b1 93                        lda     ($93),y             ;5+ get the room's color
+f9f0: c9 08                        cmp     #$08                ;2  is it invisible?
+f9f2: f0 07                        beq     @Surround_2         ;2+ if so branch
+f9f4: a9 00                        lda     #$00                ;2  if not, signal the
+f9f6: 85 db                        sta     $db                 ;3   invisible surround not
+f9f8: 4c 22 fa                     jmp     @Surround_4         ;3   wanted
+
+f9fb: a5 8a        @Surround_2     lda     $8a                 ;3  get the current room
+f9fd: 85 d9                        sta     $d9                 ;3  and store as the invisible surround
+f9ff: a5 8b                        lda     $8b                 ;3  get the ball's X coordinate
+fa01: 38                           sec                         ;2
+fa02: e9 0e                        sbc     #$0e                ;2  adjust for surround,
+fa04: 85 da                        sta     $da                 ;3   and store as surround's X coordinate
+fa06: a5 8c                        lda     $8c                 ;3  get the ball's Y coordinate
+fa08: 18                           clc                         ;2
+fa09: 69 0e                        adc     #$0e                ;2  adjust for surround
+fa0b: 85 db                        sta     $db                 ;3   and store as surround's Y coordinate
+fa0d: a5 da                        lda     $da                 ;3  get the surround's X coordinate
+fa0f: c9 f0                        cmp     #$f0                ;2  is it close to the right edge?
+fa11: 90 07                        bcc     @Surround_3         ;2+ branch if not
+fa13: a9 01                        lda     #$01                ;2  flick surround to the
+fa15: 85 da                        sta     $da                 ;3   other side of the screen
+fa17: 4c 22 fa                     jmp     @Surround_4         ;3
+
+fa1a: c9 82        @Surround_3     cmp     #$82                ;2  ???
+fa1c: 90 04                        bcc     @Surround_4         ;2+ ???
+fa1e: a9 81                        lda     #$81                ;2  ???
+fa20: 85 da                        sta     $da                 ;3  ???
+fa22: 60           @Surround_4     rts                         ;6
+
+                   ; make a noise
+fa23: a5 df        MakeSound       lda     $df                 ;3  check noise count
+fa25: d0 05                        bne     @MakeSound_2        ;2+ branch if noise to be made
+fa27: 85 19                        sta     AUDV0               ;3  turn off the volume
+fa29: 85 1a                        sta     AUDV1               ;3
+fa2b: 60                           rts                         ;6
+
+fa2c: c6 df        @MakeSound_2    dec     $df                 ;5  go to the next note
+fa2e: a5 e0                        lda     $e0                 ;3  get the noise type
+fa30: f0 15                        beq     NoiseGameOver       ;2+ game over
+fa32: c9 01                        cmp     #$01                ;2  roar
+fa34: f0 1f                        beq     NoiseRoar           ;2+
+fa36: c9 02                        cmp     #$02                ;2  man eaten
+fa38: f0 32                        beq     EatenNoise          ;2+
+fa3a: c9 03                        cmp     #$03                ;2  dying dragon
+fa3c: f0 41                        beq     DragDieNoise        ;2+
+fa3e: c9 04                        cmp     #$04                ;2  dropping object
+fa40: f0 4a                        beq     NoiseDropObject     ;2+
+fa42: c9 05                        cmp     #$05                ;2  pickup up object
+fa44: f0 55                        beq     NoiseGetObject      ;2+
+fa46: 60                           rts                         ;6
+
+                   ; noise 0: game over
+fa47: a5 df        NoiseGameOver   lda     $df                 ;3
+fa49: 85 08                        sta     COLUPF              ;3  color-luminance playfield
+fa4b: 85 15                        sta     AUDC0               ;3  audio-control 00
+fa4d: 4a                           lsr     A                   ;2
+fa4e: 85 19                        sta     AUDV0               ;3  audio-volume 00
+fa50: 4a                           lsr     A                   ;2
+fa51: 4a                           lsr     A                   ;2
+fa52: 85 17                        sta     AUDF0               ;3  audio-frequency 00
+fa54: 60                           rts                         ;6
+
+                   ; noise 1: roar
+fa55: a5 df        NoiseRoar       lda     $df                 ;3  get noise count
+fa57: 4a                           lsr     A                   ;2
+fa58: a9 03                        lda     #$03                ;2  if it was even then
+fa5a: b0 02                        bcs     SetVolume           ;2+  branch
+fa5c: a9 08                        lda     #$08                ;2  get a different audio control value
+fa5e: 85 15        SetVolume       sta     AUDC0               ;3  set audio control 00
+fa60: a5 df                        lda     $df                 ;3  set the volume to the noise count
+fa62: 85 19                        sta     AUDV0               ;3
+fa64: 4a                           lsr     A                   ;2  divide by four
+fa65: 4a                           lsr     A                   ;2
+fa66: 18                           clc                         ;2
+fa67: 69 1c                        adc     #$1c                ;2  set the frequency
+fa69: 85 17                        sta     AUDF0               ;3
+fa6b: 60                           rts                         ;6
+
+                   ; noise 2: man eaten
+fa6c: a9 06        EatenNoise      lda     #$06                ;2
+fa6e: 85 15                        sta     AUDC0               ;3  audio-control 00
+fa70: a5 df                        lda     $df                 ;3
+fa72: 49 0f                        eor     #$0f                ;2
+fa74: 85 17                        sta     AUDF0               ;3  audio-frequency 00
+fa76: a5 df                        lda     $df                 ;3
+fa78: 4a                           lsr     A                   ;2
+fa79: 18                           clc                         ;2
+fa7a: 69 08                        adc     #$08                ;2
+fa7c: 85 19                        sta     AUDV0               ;3  audio-volume 00
+fa7e: 60                           rts                         ;6
+
+                   ; noise 3: dying dragon
+fa7f: a9 04        DragDieNoise    lda     #$04                ;2  set the audio control
+fa81: 85 15                        sta     AUDC0               ;3
+fa83: a5 df                        lda     $df                 ;3  put the note count in
+fa85: 85 19                        sta     AUDV0               ;3   the volume
+fa87: 49 1f                        eor     #$1f                ;2
+fa89: 85 17                        sta     AUDF0               ;3  flip the count as store
+fa8b: 60                           rts                         ;6   as the frequency
+
+                   ; noise 4: dropping object
+fa8c: a5 df        NoiseDropObject lda     $df                 ;3  get not count
+fa8e: 49 03                        eor     #$03                ;2  reverse it as noise does up
+                   NoiseDropObject_2
+fa90: 85 17                        sta     AUDF0               ;3  store in frequency for channel 00
+fa92: a9 05                        lda     #$05                ;2
+fa94: 85 19                        sta     AUDV0               ;3  set volumen on channel 00
+fa96: a9 06                        lda     #$06                ;2
+fa98: 85 15                        sta     AUDC0               ;3  set a noise on channel 00
+fa9a: 60                           rts                         ;6
+
+                   ; noise 5: picking up an object
+fa9b: a5 df        NoiseGetObject  lda     $df                 ;3  get not count
+fa9d: 4c 90 fa                     jmp     NoiseDropObject_2   ;3   and make same noise as drop
+
+                   
+faa0: f0 ff ff     LeftOfName      .bulk   $f0,$ff,$ff
+faa3: 00 00 00                     .bulk   $00,$00,$00
+faa6: 00 00 00                     .bulk   $00,$00,$00
+faa9: 00 00 00                     .bulk   $00,$00,$00
+faac: 00 00 00                     .bulk   $00,$00,$00
+faaf: 00 00 00                     .bulk   $00,$00,$00
+
+                   
+                   BelowYellowCastle
+fab2: f0 ff 0f                     .bulk   $f0,$ff,$0f         ;line shared with above
+fab5: 00 00 00                     .bulk   $00,$00,$00
+fab8: 00 00 00                     .bulk   $00,$00,$00
+fabb: 00 00 00                     .bulk   $00,$00,$00
+fabe: 00 00 00                     .bulk   $00,$00,$00
+fac1: 00 00 00                     .bulk   $00,$00,$00
+fac4: f0 ff ff                     .bulk   $f0,$ff,$ff
+
+                   
+fac7: f0 ff 0f     SideCorridor    .bulk   $f0,$ff,$0f
+faca: 00 00 00                     .bulk   $00,$00,$00
+facd: 00 00 00                     .bulk   $00,$00,$00
+fad0: 00 00 00                     .bulk   $00,$00,$00
+fad3: 00 00 00                     .bulk   $00,$00,$00
+fad6: 00 00 00                     .bulk   $00,$00,$00
+fad9: f0 ff 0f                     .bulk   $f0,$ff,$0f
+
+                   
+fadc: f0 ff ff     NumberRoom      .bulk   $f0,$ff,$ff
+fadf: 30 00 00                     .bulk   $30,$00,$00
+fae2: 30 00 00                     .bulk   $30,$00,$00
+fae5: 30 00 00                     .bulk   $30,$00,$00
+fae8: 30 00 00                     .bulk   $30,$00,$00
+faeb: 30 00 00                     .bulk   $30,$00,$00
+faee: f0 ff 0f                     .bulk   $f0,$ff,$0f
+                   ; object #1 states (portcullis)
+faf1: 04           PortStates      .dd1    $04                 ;state 04 - open
+faf2: 24 fb                        .dd2    GfxPort07
+faf4: 08                           .dd1    $08
+faf5: 22 fb                        .dd2    GfxPort06
+faf7: 0c                           .dd1    $0c
+faf8: 20 fb                        .dd2    GfxPort05
+fafa: 10                           .dd1    $10
+fafb: 1e fb                        .dd2    GfxPort04
+fafd: 14                           .dd1    $14
+fafe: 1c fb                        .dd2    GfxPort03
+fb00: 18                           .dd1    $18
+fb01: 1a fb                        .dd2    GfxPort02
+fb03: 1c                           .dd1    $1c                 ;state 1C - closed
+fb04: 18 fb                        .dd2    GfxPort01
+fb06: 20                           .dd1    $20
+fb07: 1a fb                        .dd2    GfxPort02
+fb09: 24                           .dd1    $24
+fb0a: 1c fb                        .dd2    GfxPort03
+fb0c: 28                           .dd1    $28
+fb0d: 1e fb                        .dd2    GfxPort04
+fb0f: 2c                           .dd1    $2c
+fb10: 20 fb                        .dd2    GfxPort05
+fb12: 30                           .dd1    $30
+fb13: 22 fb                        .dd2    GfxPort06
+fb15: ff                           .dd1    $ff                 ;state FF - open
+fb16: 24 fb                        .dd2    GfxPort07
+
+                   ; object 1 states 940FF (graphic)
+                   
+fb18: fe           GfxPort01       .dd1    $fe
+fb19: aa                           .dd1    $aa
+fb1a: fe           GfxPort02       .dd1    $fe
+fb1b: aa                           .dd1    $aa
+fb1c: fe           GfxPort03       .dd1    $fe
+fb1d: aa                           .dd1    $aa
+fb1e: fe           GfxPort04       .dd1    $fe
+fb1f: aa                           .dd1    $aa
+fb20: fe           GfxPort05       .dd1    $fe
+fb21: aa                           .dd1    $aa
+fb22: fe           GfxPort06       .dd1    $fe
+fb23: aa                           .dd1    $aa
+fb24: fe           GfxPort07       .dd1    $fe
+fb25: aa                           .dd1    $aa
+fb26: fe           GfxPort08       .dd1    $fe
+fb27: aa                           .dd1    $aa
+fb28: 00           GfxPort09       .dd1    $00
+
+                   
+fb29: f0 ff 0f     TwoExitRoom     .bulk   $f0,$ff,$0f
+fb2c: 30 00 00                     .bulk   $30,$00,$00
+fb2f: 30 00 00                     .bulk   $30,$00,$00
+fb32: 30 00 00                     .bulk   $30,$00,$00
+fb35: 30 00 00                     .bulk   $30,$00,$00
+fb38: 30 00 00                     .bulk   $30,$00,$00
+fb3b: f0 ff 0f                     .bulk   $f0,$ff,$0f
+
+                   
+fb3e: f0 ff 0f     BlueMazeTop     .bulk   $f0,$ff,$0f
+fb41: 00 0c 0c                     .bulk   $00,$0c,$0c
+fb44: f0 0c 3c                     .bulk   $f0,$0c,$3c
+fb47: f0 0c 00                     .bulk   $f0,$0c,$00
+fb4a: f0 ff 3f                     .bulk   $f0,$ff,$3f
+fb4d: 00 30 30                     .bulk   $00,$30,$30
+fb50: f0 33 3f                     .bulk   $f0,$33,$3f
+
+                   
+fb53: f0 ff ff     BlueMaze1       .bulk   $f0,$ff,$ff
+fb56: 00 00 00                     .bulk   $00,$00,$00
+fb59: f0 fc ff                     .bulk   $f0,$fc,$ff
+fb5c: f0 00 c0                     .bulk   $f0,$00,$c0
+fb5f: f0 3f cf                     .bulk   $f0,$3f,$cf
+fb62: 00 30 cc                     .bulk   $00,$30,$cc
+fb65: f0 f3 cc                     .bulk   $f0,$f3,$cc
+
+                   
+fb68: f0 f3 0c     BlueMazeBottom  .bulk   $f0,$f3,$0c
+fb6b: 00 30 0c                     .bulk   $00,$30,$0c
+fb6e: f0 3f 0f                     .bulk   $f0,$3f,$0f
+fb71: f0 00 00                     .bulk   $f0,$00,$00
+fb74: f0 f0 00                     .bulk   $f0,$f0,$00
+fb77: 00 30 00                     .bulk   $00,$30,$00
+fb7a: f0 ff ff                     .bulk   $f0,$ff,$ff
+
+                   
+fb7d: f0 33 3f     BlueMazeCenter  .bulk   $f0,$33,$3f
+fb80: 00 30 3c                     .bulk   $00,$30,$3c
+fb83: f0 ff 3c                     .bulk   $f0,$ff,$3c
+fb86: 00 03 3c                     .bulk   $00,$03,$3c
+fb89: f0 33 3c                     .bulk   $f0,$33,$3c
+fb8c: 00 33 0c                     .bulk   $00,$33,$0c
+fb8f: f0 f3 0c                     .bulk   $f0,$f3,$0c
+
+                   
+fb92: f0 f3 cc     BlueMazeEntry   .bulk   $f0,$f3,$cc
+fb95: 00 33 0c                     .bulk   $00,$33,$0c
+fb98: f0 33 fc                     .bulk   $f0,$33,$fc
+fb9b: 00 33 00                     .bulk   $00,$33,$00
+fb9e: f0 f3 ff                     .bulk   $f0,$f3,$ff
+fba1: 00 00 00                     .bulk   $00,$00,$00
+fba4: f0 ff 0f                     .bulk   $f0,$ff,$0f
+
+                   
+fba7: f0 ff cc     MazeMiddle      .bulk   $f0,$ff,$cc
+fbaa: 00 00 cc                     .bulk   $00,$00,$cc
+fbad: f0 03 cf                     .bulk   $f0,$03,$cf
+fbb0: 00 03 00                     .bulk   $00,$03,$00
+fbb3: f0 f3 fc                     .bulk   $f0,$f3,$fc
+fbb6: 00 33 0c                     .bulk   $00,$33,$0c
+
+                   
+fbb9: f0 33 cc     MazeSide        .bulk   $f0,$33,$cc         ;line shared with above room
+fbbc: 00 30 cc                     .bulk   $00,$30,$cc
+fbbf: 00 3f cf                     .bulk   $00,$3f,$cf
+fbc2: 00 00 c0                     .bulk   $00,$00,$c0
+fbc5: 00 3f c3                     .bulk   $00,$3f,$c3
+fbc8: 00 30 c0                     .bulk   $00,$30,$c0
+fbcb: f0 ff ff                     .bulk   $f0,$ff,$ff
+
+                   
+fbce: f0 ff 0f     MazeEntry       .bulk   $f0,$ff,$0f
+fbd1: 00 30 00                     .bulk   $00,$30,$00
+fbd4: f0 30 ff                     .bulk   $f0,$30,$ff
+fbd7: 00 30 c0                     .bulk   $00,$30,$c0
+fbda: f0 f3 c0                     .bulk   $f0,$f3,$c0
+fbdd: 00 03 c0                     .bulk   $00,$03,$c0
+fbe0: f0 ff cc                     .bulk   $f0,$ff,$cc
+
+                   
+fbe3: f0 fe 15     CastleDef       .bulk   $f0,$fe,$15
+fbe6: 30 03 1f                     .bulk   $30,$03,$1f
+fbe9: 30 03 ff                     .bulk   $30,$03,$ff
+fbec: 30 00 ff                     .bulk   $30,$00,$ff
+fbef: 30 00 3f                     .bulk   $30,$00,$3f
+fbf2: 30 00 00                     .bulk   $30,$00,$00
+fbf5: f0 ff 0f                     .bulk   $f0,$ff,$0f
+                   ; Object Data
+                   ; 
+                   ; offset 0: room number of object
+                   ; offset 1: X coordinate of object
+                   ; offset 2: Y coordinate of object
+                   ; 
+                   ; object #1: portcullis
+fbf8: 11 4d 31     PortInfo1       .bulk   $11,$4d,$31         ;room 11 (4D, 31)
+fbfb: 0f 4d 31     PortInfo2       .bulk   $0f,$4d,$31         ;room 0F (4D, 31)
+fbfe: 10 4d 31     PortInfo3       .bulk   $10,$4d,$31         ;room 10 (4D, 31)
+                   ; object #0: state
+fc01: 00           SurroundCurr    .dd1    $00
+fc02: ff           SurroundStates  .dd1    $ff
+fc03: 05 fc                        .dd2    GfxSurround
+
+                   ; object #1: graphic
+                   
+fc05: ff ff ff ff+ GfxSurround     .fill   32,$ff
+fc25: 00                           .dd1    $00
+
+                   
+fc26: f0 ff ff     RedMaze1        .bulk   $f0,$ff,$ff
+fc29: 00 00 00                     .bulk   $00,$00,$00
+fc2c: f0 ff 0f                     .bulk   $f0,$ff,$0f
+fc2f: 00 00 0c                     .bulk   $00,$00,$0c
+fc32: f0 ff 0c                     .bulk   $f0,$ff,$0c
+fc35: f0 03 cc                     .bulk   $f0,$03,$cc
+
+                   
+fc38: f0 33 cf     RedMazeBottom   .bulk   $f0,$33,$cf         ;line shared with room above
+fc3b: f0 30 00                     .bulk   $f0,$30,$00
+fc3e: f0 33 ff                     .bulk   $f0,$33,$ff
+fc41: 00 33 00                     .bulk   $00,$33,$00
+fc44: f0 ff 00                     .bulk   $f0,$ff,$00
+fc47: 00 00 00                     .bulk   $00,$00,$00
+fc4a: f0 ff 0f                     .bulk   $f0,$ff,$0f
+
+                   
+fc4d: f0 ff ff     RedMazeTop      .bulk   $f0,$ff,$ff
+fc50: 00 00 c0                     .bulk   $00,$00,$c0
+fc53: f0 ff cf                     .bulk   $f0,$ff,$cf
+fc56: 00 00 cc                     .bulk   $00,$00,$cc
+fc59: f0 33 ff                     .bulk   $f0,$33,$ff
+fc5c: f0 33 00                     .bulk   $f0,$33,$00
+
+                   
+                   WhiteCastleEntry
+fc5f: f0 3f 0c                     .bulk   $f0,$3f,$0c         ;line shared with room above
+fc62: f0 00 0c                     .bulk   $f0,$00,$0c
+fc65: f0 ff 0f                     .bulk   $f0,$ff,$0f
+fc68: 00 30 00                     .bulk   $00,$30,$00
+fc6b: f0 30 00                     .bulk   $f0,$30,$00
+fc6e: 00 30 00                     .bulk   $00,$30,$00
+fc71: f0 ff 0f                     .bulk   $f0,$ff,$0f
+
+                   
+fc74: f0 ff 0f     TopEntryRoom    .bulk   $f0,$ff,$0f
+fc77: 30 00 00                     .bulk   $30,$00,$00
+fc7a: 30 00 00                     .bulk   $30,$00,$00
+fc7d: 30 00 00                     .bulk   $30,$00,$00
+fc80: 30 00 00                     .bulk   $30,$00,$00
+fc83: 30 00 00                     .bulk   $30,$00,$00
+fc86: f0 ff ff                     .bulk   $f0,$ff,$ff
+
+                   
+fc89: f0 f0 ff     BlackMaze1      .bulk   $f0,$f0,$ff
+fc8c: 00 00 03                     .bulk   $00,$00,$03
+fc8f: f0 ff 03                     .bulk   $f0,$ff,$03
+fc92: 00 00 00                     .bulk   $00,$00,$00
+fc95: 30 3f ff                     .bulk   $30,$3f,$ff
+fc98: 00 30 00                     .bulk   $00,$30,$00
+
+                   
+fc9b: f0 f0 ff     BlackMaze3      .bulk   $f0,$f0,$ff         ;line shared with room above; mirrored
+fc9e: 30 00 00                     .bulk   $30,$00,$00
+fca1: 30 3f ff                     .bulk   $30,$3f,$ff
+fca4: 00 30 00                     .bulk   $00,$30,$00
+fca7: f0 f0 ff                     .bulk   $f0,$f0,$ff
+fcaa: 30 00 03                     .bulk   $30,$00,$03
+fcad: f0 f0 ff                     .bulk   $f0,$f0,$ff
+
+                   
+fcb0: f0 ff ff     BlackMaze2      .bulk   $f0,$ff,$ff
+fcb3: 00 00 c0                     .bulk   $00,$00,$c0
+fcb6: f0 ff cf                     .bulk   $f0,$ff,$cf
+fcb9: 00 00 0c                     .bulk   $00,$00,$0c
+fcbc: f0 0f ff                     .bulk   $f0,$0f,$ff
+fcbf: 00 0f c0                     .bulk   $00,$0f,$c0
+
+                   
+fcc2: 30 cf cc     BlackMazeEntry  .bulk   $30,$cf,$cc         ;line shared with room above; mirrored
+fcc5: 00 c0 cc                     .bulk   $00,$c0,$cc
+fcc8: f0 ff 0f                     .bulk   $f0,$ff,$0f
+fccb: 00 00 00                     .bulk   $00,$00,$00
+fcce: f0 ff 0f                     .bulk   $f0,$ff,$0f
+fcd1: 00 00 00                     .bulk   $00,$00,$00
+fcd4: f0 ff 0f                     .bulk   $f0,$ff,$0f
+                   ; object #0a: state
+fcd7: 00           BridgeCurr      .bulk   $00
+                   ; object #0a: list of states
+fcd8: ff           BridgeStates    .dd1    $ff
+fcd9: db fc                        .dd2    GfxBridge
+
+                   ; object #0a: state FF: graphic
+                   
+fcdb: c3           GfxBridge       .dd1    $c3
+fcdc: c3                           .dd1    $c3
+fcdd: c3                           .dd1    $c3
+fcde: c3                           .dd1    $c3
+fcdf: 42                           .dd1    $42
+fce0: 42                           .dd1    $42
+fce1: 42                           .dd1    $42
+fce2: 42                           .dd1    $42
+fce3: 42                           .dd1    $42
+fce4: 42                           .dd1    $42
+fce5: 42                           .dd1    $42
+fce6: 42                           .dd1    $42
+fce7: 42                           .dd1    $42
+fce8: 42                           .dd1    $42
+fce9: 42                           .dd1    $42
+fcea: 42                           .dd1    $42
+fceb: 42                           .dd1    $42
+fcec: 42                           .dd1    $42
+fced: 42                           .dd1    $42
+fcee: 42                           .dd1    $42
+fcef: c3                           .dd1    $c3
+fcf0: c3                           .dd1    $c3
+fcf1: c3                           .dd1    $c3
+fcf2: c3                           .dd1    $c3
+fcf3: 00                           .dd1    $00
+
+                   ; object #5 state #1 graphic
+                   
+fcf4: 04           GfxNum1         .dd1    $04
+fcf5: 0c                           .dd1    $0c
+fcf6: 04                           .dd1    $04
+fcf7: 04                           .dd1    $04
+fcf8: 04                           .dd1    $04
+fcf9: 04                           .dd1    $04
+fcfa: 0e                           .dd1    $0e
+fcfb: 00                           .dd1    $00
+                   ; object #0B: state
+fcfc: 00           KeyCurr         .dd1    $00
+                   ; object #0b: list of states
+fcfd: ff           KeyStates       .dd1    $ff
+fcfe: 00 fd                        .dd2    GfxKey
+
+                   ; object #0b: state FF: graphic
+                   
+fd00: 07           GfxKey          .dd1    $07
+fd01: fd                           .dd1    $fd
+fd02: a7                           .dd1    $a7
+fd03: 00                           .dd1    $00
+
+                   ; object #5 state #2 graphic
+                   
+fd04: 0e           GfxNum2         .dd1    $0e
+fd05: 11                           .dd1    $11
+fd06: 01                           .dd1    $01
+fd07: 02                           .dd1    $02
+fd08: 04                           .dd1    $04
+fd09: 08                           .dd1    $08
+fd0a: 1f                           .dd1    $1f
+fd0b: 00                           .dd1    $00
+
+                   ; object #5 state #3 graphic
+                   
+fd0c: 0e           GfxNum3         .dd1    $0e
+fd0d: 11                           .dd1    $11
+fd0e: 01                           .dd1    $01
+fd0f: 06                           .dd1    $06
+fd10: 01                           .dd1    $01
+fd11: 11                           .dd1    $11
+fd12: 0e                           .dd1    $0e
+fd13: 00                           .dd1    $00
+                   ; object #0E: list of states
+fd14: 03           BatStates       .dd1    $03
+fd15: 1a fd                        .dd2    GfxBat1
+fd17: ff                           .dd1    $ff
+fd18: 22 fd                        .dd2    GfxBat2
+
+                   ; object #0E: state 03
+                   
+fd1a: 81           GfxBat1         .dd1    $81
+fd1b: 81                           .dd1    $81
+fd1c: c3                           .dd1    $c3
+fd1d: c3                           .dd1    $c3
+fd1e: ff                           .dd1    $ff
+fd1f: 5a                           .dd1    $5a
+fd20: 66                           .dd1    $66
+fd21: 00                           .dd1    $00
+
+                   ; object #0e: state FF: graphic
+                   
+fd22: 01           GfxBat2         .dd1    $01
+fd23: 80                           .dd1    $80
+fd24: 01                           .dd1    $01
+fd25: 80                           .dd1    $80
+fd26: 3c                           .dd1    $3c
+fd27: 5a                           .dd1    $5a
+fd28: 66                           .dd1    $66
+fd29: c3                           .dd1    $c3
+fd2a: 81                           .dd1    $81
+fd2b: 81                           .dd1    $81
+fd2c: 81                           .dd1    $81
+fd2d: 00                           .dd1    $00
+                   ; object #6: states
+fd2e: 00           DragonStates    .dd1    $00
+fd2f: 3a fd                        .dd2    GfxDrag0
+fd31: 01                           .dd1    $01
+fd32: 66 fd                        .dd2    GfxDrag2
+fd34: 02                           .dd1    $02
+fd35: 3a fd                        .dd2    GfxDrag0
+fd37: ff                           .dd1    $ff
+fd38: 4f fd                        .dd2    GfxDrag1
+
+                   ; object #6: state #00: graphic
+                   
+fd3a: 06           GfxDrag0        .dd1    $06
+fd3b: 0f                           .dd1    $0f
+fd3c: f3                           .dd1    $f3
+fd3d: fe                           .dd1    $fe
+fd3e: 0e                           .dd1    $0e
+fd3f: 04                           .dd1    $04
+fd40: 04                           .dd1    $04
+fd41: 1e                           .dd1    $1e
+fd42: 3f                           .dd1    $3f
+fd43: 7f                           .dd1    $7f
+fd44: e3                           .dd1    $e3
+fd45: c3                           .dd1    $c3
+fd46: c3                           .dd1    $c3
+fd47: c7                           .dd1    $c7
+fd48: ff                           .dd1    $ff
+fd49: 3c                           .dd1    $3c
+fd4a: 08                           .dd1    $08
+fd4b: 8f                           .dd1    $8f
+fd4c: e1                           .dd1    $e1
+fd4d: 3f                           .dd1    $3f
+fd4e: 00                           .dd1    $00
+
+                   ; object #6: state FF: graphic
+                   
+fd4f: 80           GfxDrag1        .dd1    $80
+fd50: 40                           .dd1    $40
+fd51: 26                           .dd1    $26
+fd52: 1f                           .dd1    $1f
+fd53: 0b                           .dd1    $0b
+fd54: 0e                           .dd1    $0e
+fd55: 1e                           .dd1    $1e
+fd56: 24                           .dd1    $24
+fd57: 44                           .dd1    $44
+fd58: 8e                           .dd1    $8e
+fd59: 1e                           .dd1    $1e
+fd5a: 3f                           .dd1    $3f
+fd5b: 7f                           .dd1    $7f
+fd5c: 7f                           .dd1    $7f
+fd5d: 7f                           .dd1    $7f
+fd5e: 7f                           .dd1    $7f
+fd5f: 3e                           .dd1    $3e
+fd60: 1c                           .dd1    $1c
+fd61: 08                           .dd1    $08
+fd62: f8                           .dd1    $f8
+fd63: 80                           .dd1    $80
+fd64: e0                           .dd1    $e0
+fd65: 00                           .dd1    $00
+
+                   ; object #6: state 02: graphic
+                   
+fd66: 0c           GfxDrag2        .dd1    $0c
+fd67: 0c                           .dd1    $0c
+fd68: 0c                           .dd1    $0c
+fd69: 0e                           .dd1    $0e
+fd6a: 1b                           .dd1    $1b
+fd6b: 7f                           .dd1    $7f
+fd6c: ce                           .dd1    $ce
+fd6d: 80                           .dd1    $80
+fd6e: fc                           .dd1    $fc
+fd6f: fe                           .dd1    $fe
+fd70: fe                           .dd1    $fe
+fd71: 7e                           .dd1    $7e
+fd72: 78                           .dd1    $78
+fd73: 20                           .dd1    $20
+fd74: 6e                           .dd1    $6e
+fd75: 42                           .dd1    $42
+fd76: 7e                           .dd1    $7e
+fd77: 00                           .dd1    $00
+                   ; object #9: current state
+fd78: 00           SwordCurr       .dd1    $00
+                   ; object #9: list of states
+fd79: ff           SwordStates     .dd1    $ff
+fd7a: 7c fd                        .dd2    GfxSword
+
+                   ; object #9: state FF: graphics
+                   
+fd7c: 20           GfxSword        .dd1    $20
+fd7d: 40                           .dd1    $40
+fd7e: ff                           .dd1    $ff
+fd7f: 40                           .dd1    $40
+fd80: 20                           .dd1    $20
+fd81: 00                           .dd1    $00
+fd82: 00           DotCurr         .dd1    $00
+fd83: ff           DotStates       .dd1    $ff
+fd84: 86 fd                        .dd2    GfxDot
+
+                   
+fd86: 80           GfxDot          .dd1    $80
+fd87: 00                           .dd1    $00
+
+                   ; object #4: state FF: graphic
+                   
+fd88: f0           GfxAuthor       .dd1    $f0
+fd89: 80                           .dd1    $80
+fd8a: 80                           .dd1    $80
+fd8b: 80                           .dd1    $80
+fd8c: f4                           .dd1    $f4
+fd8d: 04                           .dd1    $04
+fd8e: 87                           .dd1    $87
+fd8f: e5                           .dd1    $e5
+fd90: 87                           .dd1    $87
+fd91: 80                           .dd1    $80
+fd92: 05                           .dd1    $05
+fd93: e5                           .dd1    $e5
+fd94: a7                           .dd1    $a7
+fd95: e1                           .dd1    $e1
+fd96: 87                           .dd1    $87
+fd97: e0                           .dd1    $e0
+fd98: 01                           .dd1    $01
+fd99: e0                           .dd1    $e0
+fd9a: a0                           .dd1    $a0
+fd9b: f0                           .dd1    $f0
+fd9c: 01                           .dd1    $01
+fd9d: 40                           .dd1    $40
+fd9e: e0                           .dd1    $e0
+fd9f: 40                           .dd1    $40
+fda0: 40                           .dd1    $40
+fda1: 40                           .dd1    $40
+fda2: 01                           .dd1    $01
+fda3: e0                           .dd1    $e0
+fda4: a0                           .dd1    $a0
+fda5: e0                           .dd1    $e0
+fda6: 80                           .dd1    $80
+fda7: e0                           .dd1    $e0
+fda8: 01                           .dd1    $01
+fda9: 20                           .dd1    $20
+fdaa: 20                           .dd1    $20
+fdab: e0                           .dd1    $e0
+fdac: a0                           .dd1    $a0
+fdad: e0                           .dd1    $e0
+fdae: 01                           .dd1    $01
+fdaf: 01                           .dd1    $01
+fdb0: 01                           .dd1    $01
+fdb1: 88                           .dd1    $88
+fdb2: a8                           .dd1    $a8
+fdb3: a8                           .dd1    $a8
+fdb4: a8                           .dd1    $a8
+fdb5: f8                           .dd1    $f8
+fdb6: 01                           .dd1    $01
+fdb7: e0                           .dd1    $e0
+fdb8: a0                           .dd1    $a0
+fdb9: f0                           .dd1    $f0
+fdba: 01                           .dd1    $01
+fdbb: 80                           .dd1    $80
+fdbc: e0                           .dd1    $e0
+fdbd: 8f                           .dd1    $8f
+fdbe: 89                           .dd1    $89
+fdbf: 0f                           .dd1    $0f
+fdc0: 8a                           .dd1    $8a
+fdc1: e9                           .dd1    $e9
+fdc2: 80                           .dd1    $80
+fdc3: 8e                           .dd1    $8e
+fdc4: 0a                           .dd1    $0a
+fdc5: ee                           .dd1    $ee
+fdc6: a0                           .dd1    $a0
+fdc7: e8                           .dd1    $e8
+fdc8: 88                           .dd1    $88
+fdc9: ee                           .dd1    $ee
+fdca: 0a                           .dd1    $0a
+fdcb: 8e                           .dd1    $8e
+fdcc: e0                           .dd1    $e0
+fdcd: a4                           .dd1    $a4
+fdce: a4                           .dd1    $a4
+fdcf: 04                           .dd1    $04
+fdd0: 80                           .dd1    $80
+fdd1: 08                           .dd1    $08
+fdd2: 0e                           .dd1    $0e
+fdd3: 0a                           .dd1    $0a
+fdd4: 0a                           .dd1    $0a
+fdd5: 80                           .dd1    $80
+fdd6: 0e                           .dd1    $0e
+fdd7: 0a                           .dd1    $0a
+fdd8: 0e                           .dd1    $0e
+fdd9: 08                           .dd1    $08
+fdda: 0e                           .dd1    $0e
+fddb: 80                           .dd1    $80
+fddc: 04                           .dd1    $04
+fddd: 0e                           .dd1    $0e
+fdde: 04                           .dd1    $04
+fddf: 04                           .dd1    $04
+fde0: 04                           .dd1    $04
+fde1: 80                           .dd1    $80
+fde2: 04                           .dd1    $04
+fde3: 0e                           .dd1    $0e
+fde4: 04                           .dd1    $04
+fde5: 04                           .dd1    $04
+fde6: 04                           .dd1    $04
+fde7: 00                           .dd1    $00
+                   ; object #4: author's name
+fde8: 1e 50 69     AuthorInfo      .bulk   $1e,$50,$69         ;room 1E (50, 69)
+                   ; object #4: current state
+fdeb: 00           AuthorCurr      .dd1    $00
+                   ; object #4: states
+fdec: ff           AuthorStates    .dd1    $ff
+fded: 88 fd                        .dd2    GfxAuthor
+                   ; object #10: state
+fdef: 00           ChaliceCurr     .dd1    $00
+                   ; object #10: list of states
+fdf0: ff           ChaliceStates   .dd1    $ff
+fdf1: f3 fd                        .dd2    GfxChalice
+
+                   ; object #10: state FF: graphic
+                   
+fdf3: 81           GfxChalice      .dd1    $81
+fdf4: 81                           .dd1    $81
+fdf5: c3                           .dd1    $c3
+fdf6: 7e                           .dd1    $7e
+fdf7: 7e                           .dd1    $7e
+fdf8: 3c                           .dd1    $3c
+fdf9: 18                           .dd1    $18
+fdfa: 18                           .dd1    $18
+fdfb: 7e                           .dd1    $7e
+fdfc: 00                           .dd1    $00
+                   ; object #12: state
+fdfd: 00           NullCurr        .dd1    $00
+                   ; object #12: list of states
+fdfe: ff           NullStates      .dd1    $ff
+fdff: 01 fe                        .dd2    GfxNull
+fe01: 00           GfxNull         .dd1    $00
+                   ; object #5: number
+fe02: 00 50 40     NumberInfo      .bulk   $00,$50,$40         ;room 00 (50,40)
+                   ; object #5 states
+fe05: 01           NumberStates    .dd1    $01
+fe06: f4 fc                        .dd2    GfxNum1
+fe08: 03                           .dd1    $03
+fe09: 04 fd                        .dd2    GfxNum2
+fe0b: ff                           .dd1    $ff
+fe0c: 0c fd                        .dd2    GfxNum3
+                   ; object #11: state
+fe0e: 00           MagnetCurr      .dd1    $00
+                   ; object #11: list of states
+fe0f: ff           MagnetStates    .dd1    $ff
+fe10: 12 fe                        .dd2    GfxMagnet
+
+                   
+fe12: 3c           GfxMagnet       .dd1    $3c
+fe13: 7e                           .dd1    $7e
+fe14: e7                           .dd1    $e7
+fe15: c3                           .dd1    $c3
+fe16: c3                           .dd1    $c3
+fe17: c3                           .dd1    $c3
+fe18: c3                           .dd1    $c3
+fe19: c3                           .dd1    $c3
+fe1a: 00                           .dd1    $00
+                   ; Room Data
+                   ; 
+                   ; offset 0: low byte room graphics data
+                   ; offset 1: high byte room graphics data
+                   ; offset 2: color
+                   ; offset 3: B&W color
+                   ; offset 4: bits 5-0: playfield control
+                   ;           bit 6: true if right thin wall wanted
+                   ;           bit 7: true if left thin wall wanted
+                   ; offset 5: room above
+                   ; offset 6: room left
+                   ; offset 7: room down
+                   ; offset 8: room right
+fe1b: dc fa        RoomDataTable   .dd2    NumberRoom          ;00 number room; purple
+fe1d: 66 0a 21 00+                 .bulk   $66,$0a,$21,$00,$00,$00,$00
+fe24: b2 fa                        .dd2    BelowYellowCastle   ;01 (top access) reflected / 8 clock ball
+fe26: d8 0a a1 08+                 .bulk   $d8,$0a,$a1,$08,$02,$80,$03
+fe2d: b2 fa                        .dd2    BelowYellowCastle   ;02 (top access); green
+fe2f: c8 0a 21 11+                 .bulk   $c8,$0a,$21,$11,$03,$83,$01
+fe36: a0 fa                        .dd2    LeftOfName          ;03 left of name
+fe38: e8 0a 61 06+                 .bulk   $e8,$0a,$61,$06,$01,$86,$02
+fe3f: 3e fb                        .dd2    BlueMazeTop         ;04 top of blue maze; blue
+fe41: 86 0a 21 10+                 .bulk   $86,$0a,$21,$10,$05,$07,$06
+fe48: 53 fb                        .dd2    BlueMaze1           ;05 blue maze #1; blue
+fe4a: 86 0a 21 1d+                 .bulk   $86,$0a,$21,$1d,$06,$08,$04
+fe51: 68 fb                        .dd2    BlueMazeBottom      ;06 bottom of blue maze; blue
+fe53: 86 0a 21 07+                 .bulk   $86,$0a,$21,$07,$04,$03,$05
+fe5a: 7d fb                        .dd2    BlueMazeCenter      ;07 center of blue maze; blue
+fe5c: 86 0a 21 04+                 .bulk   $86,$0a,$21,$04,$08,$06,$08
+fe63: 92 fb                        .dd2    BlueMazeEntry       ;08 blue maze entry; blue
+fe65: 86 0a 21 05+                 .bulk   $86,$0a,$21,$05,$07,$01,$07
+fe6c: a7 fb                        .dd2    MazeMiddle          ;09 maze middle; invisible
+fe6e: 08 08 25 0a+                 .bulk   $08,$08,$25,$0a,$0a,$0b,$0a
+fe75: ce fb                        .dd2    MazeEntry           ;0a maze entry; invisible
+fe77: 08 08 25 03+                 .bulk   $08,$08,$25,$03,$09,$09,$09
+fe7e: b9 fb                        .dd2    MazeSide            ;0b maze side; invisible/re
+fe80: 08 08 25 09+                 .bulk   $08,$08,$25,$09,$0c,$1c,$0d
+fe87: c7 fa                        .dd2    SideCorridor        ;0c (side corridor)
+fe89: 98 0a 61 1c+                 .bulk   $98,$0a,$61,$1c,$0d,$1d,$0b
+fe90: c7 fa                        .dd2    SideCorridor        ;0d (side corridor)
+fe92: b8 0a a1 0f+                 .bulk   $b8,$0a,$a1,$0f,$0b,$0e,$0c
+fe99: 74 fc                        .dd2    TopEntryRoom        ;0e (top entry room)
+fe9b: a8 0a 21 0d+                 .bulk   $a8,$0a,$21,$0d,$10,$0f,$10
+fea2: e3 fb                        .dd2    CastleDef           ;0f white castle; white
+fea4: 0c 0c 21 0e+                 .bulk   $0c,$0c,$21,$0e,$0f,$0d,$0f
+feab: e3 fb                        .dd2    CastleDef           ;10 black castle; black
+fead: 00 02 21 01+                 .bulk   $00,$02,$21,$01,$1c,$04,$1c
+feb4: e3 fb                        .dd2    CastleDef           ;11 yellow castle; yellow
+feb6: 1a 0a 21 06+                 .bulk   $1a,$0a,$21,$06,$03,$02,$01
+febd: dc fa                        .dd2    NumberRoom          ;12 yellow castle entry; yellow
+febf: 1a 0a 21 12+                 .bulk   $1a,$0a,$21,$12,$12,$12,$12
+fec6: 89 fc                        .dd2    BlackMaze1          ;13 black maze #1; invisible/re
+fec8: 08 08 25 15+                 .bulk   $08,$08,$25,$15,$14,$15,$16
+fecf: b0 fc                        .dd2    BlackMaze2          ;14 black maze #2; invisible/dupl
+fed1: 08 08 24 16+                 .bulk   $08,$08,$24,$16,$15,$16,$13
+fed8: 9b fc                        .dd2    BlackMaze3          ;15 black maze #3; invisible/dupl
+feda: 08 08 24 13+                 .bulk   $08,$08,$24,$13,$16,$13,$14
+fee1: c2 fc                        .dd2    BlackMazeEntry      ;16 black maze entry; invisible/re
+fee3: 08 08 25 14+                 .bulk   $08,$08,$25,$14,$13,$1b,$15
+feea: 26 fc                        .dd2    RedMaze1            ;17 red maze #1; red
+feec: 36 0a 21 19+                 .bulk   $36,$0a,$21,$19,$18,$19,$18
+fef3: 4d fc                        .dd2    RedMazeTop          ;18 top of red maze; red
+fef5: 36 0a 21 1a+                 .bulk   $36,$0a,$21,$1a,$17,$1a,$17
+fefc: 38 fc                        .dd2    RedMazeBottom       ;19 bottom of red maze; red
+fefe: 36 0a 21 17+                 .bulk   $36,$0a,$21,$17,$1a,$17,$1a
+ff05: 5f fc                        .dd2    WhiteCastleEntry    ;1a white castle entry; red
+ff07: 36 0a 21 18+                 .bulk   $36,$0a,$21,$18,$19,$18,$19
+ff0e: 29 fb                        .dd2    TwoExitRoom         ;1b black castle entry; red
+ff10: 36 0a 21 89+                 .bulk   $36,$0a,$21,$89,$89,$89,$89
+ff17: dc fa                        .dd2    NumberRoom          ;1c other purple room; purple
+ff19: 66 0a 21 1d+                 .bulk   $66,$0a,$21,$1d,$07,$8c,$08
+ff20: 74 fc                        .dd2    TopEntryRoom        ;1d (top entry room); red
+ff22: 36 0a 21 8f+                 .bulk   $36,$0a,$21,$8f,$01,$10,$03
+ff29: b2 fa                        .dd2    BelowYellowCastle   ;1e name room; purple
+ff2b: 66 0a 21 06+                 .bulk   $66,$0a,$21,$06,$01,$06,$03
+                   ; room differences for different levels (level 1, 2, 3)
+ff32: 10 0f 0f     RoomDiffs       .bulk   $10,$0f,$0f         ;down from room 01
+ff35: 05 11 11                     .bulk   $05,$11,$11         ;down from room 02
+ff38: 1d 0a 0a                     .bulk   $1d,$0a,$0a         ;down from room 03
+ff3b: 1c 16 16                     .bulk   $1c,$16,$16         ;U/L/R/D from room 1b (black castle room)
+ff3e: 1b 0c 0c                     .bulk   $1b,$0c,$0c         ;down from room 1c
+ff41: 03 0c 0c                     .bulk   $03,$0c,$0c         ;up from room 1d (top entry room)
+                   ; Objects
+                   ; 
+                   ; offset 0: low byte object information (moveable stuff)
+                   ; offset 1: high byte object information (moveable stuff)
+                   ; offset 2: low byte to object's current state
+                   ; offset 3: high byte to object's current state
+                   ; offset 4: low byte list of states
+                   ; offset 5: high byte list of states
+                   ; offset 6: color
+                   ; offset 7: color in B&W
+                   ; offset 8: size of object
+                   ; 
+                   ; 00 invisible surround offsets
+ff44: d9           Store1          .dd1    $d9
+ff45: 00           Store2          .dd1    $00
+ff46: 01           Store3          .dd1    <SurroundCurr
+ff47: fc           Store4          .dd1    >SurroundCurr
+ff48: 02           Store5          .dd1    <SurroundStates
+ff49: fc           Store6          .dd1    >SurroundStates
+ff4a: 28           Store7          .dd1    $28
+ff4b: 0c           Store8          .dd1    $0c
+ff4c: 07           Store9          .dd1    $07
+                   ; 01 portcullis #1; black
+ff4d: f8 fb                        .dd2    PortInfo1
+ff4f: c8 00                        .bulk   $c8,$00
+ff51: f1 fa                        .dd2    PortStates
+ff53: 00 00 00                     .bulk   $00,$00,$00
+                   ; 02 portcullis #2; black
+ff56: fb fb                        .dd2    PortInfo2
+ff58: c9 00                        .bulk   $c9,$00
+ff5a: f1 fa                        .dd2    PortStates
+ff5c: 00 00 00                     .bulk   $00,$00,$00
+                   ; 03 portcullis #3; black
+ff5f: fe fb                        .dd2    PortInfo3
+ff61: ca 00                        .bulk   $ca,$00
+ff63: f1 fa                        .dd2    PortStates
+ff65: 00 00 00                     .bulk   $00,$00,$00
+                   ; 04 name; flash
+ff68: e8 fd                        .dd2    AuthorInfo
+ff6a: eb fd                        .dd2    AuthorCurr
+ff6c: ec fd                        .dd2    AuthorStates
+ff6e: cb 00 00                     .bulk   $cb,$00,$00
+                   ; 05 number; green
+ff71: 02 fe                        .dd2    NumberInfo
+ff73: dd 00                        .bulk   $dd,$00
+ff75: 05 fe                        .dd2    NumberStates
+ff77: c8 00 00                     .bulk   $c8,$00,$00
+                   ; 06 dragon #1; red
+ff7a: a4 00 a8 00                  .bulk   $a4,$00,$a8,$00
+ff7e: 2e fd                        .dd2    DragonStates
+ff80: 36 0e 00                     .bulk   $36,$0e,$00
+                   ; 07 dragon #2; yellow
+ff83: a9 00 ad 00                  .bulk   $a9,$00,$ad,$00
+ff87: 2e fd                        .dd2    DragonStates
+ff89: 1a 06 00                     .bulk   $1a,$06,$00
+                   ; 08 dragon #3; green
+ff8c: ae 00 b2 00                  .bulk   $ae,$00,$b2,$00
+ff90: 2e fd                        .dd2    DragonStates
+ff92: c8 00 00                     .bulk   $c8,$00,$00
+                   ; 09 sword; yellow
+ff95: b6 00                        .bulk   $b6,$00
+ff97: 78 fd                        .dd2    SwordCurr
+ff99: 79 fd                        .dd2    SwordStates
+ff9b: 1a 06 00                     .bulk   $1a,$06,$00
+                   ; 0a bridge; purple
+ff9e: bc 00                        .bulk   $bc,$00
+ffa0: d7 fc                        .dd2    BridgeCurr
+ffa2: d8 fc                        .dd2    BridgeStates
+ffa4: 66 02 07                     .bulk   $66,$02,$07
+                   ; 0b key #01; yellow
+ffa7: bf 00                        .bulk   $bf,$00
+ffa9: fc fc                        .dd2    KeyCurr
+ffab: fd fc                        .dd2    KeyStates
+ffad: 1a 06 00                     .bulk   $1a,$06,$00
+                   ; 0c key #02; white
+ffb0: c2 00                        .bulk   $c2,$00
+ffb2: fc fc                        .dd2    KeyCurr
+ffb4: fd fc                        .dd2    KeyStates
+ffb6: 0e 0e 00                     .bulk   $0e,$0e,$00
+                   ; 0d key #03; black
+ffb9: c5 00                        .bulk   $c5,$00
+ffbb: fc fc                        .dd2    KeyCurr
+ffbd: fd fc                        .dd2    KeyStates
+ffbf: 00 00 00                     .bulk   $00,$00,$00
+                   ; 0e bat; black
+ffc2: cb 00 cf 00                  .bulk   $cb,$00,$cf,$00
+ffc6: 14 fd                        .dd2    BatStates
+ffc8: 00 00 00                     .bulk   $00,$00,$00
+                   ; 0f black dot; light gray
+ffcb: a1 00                        .bulk   $a1,$00
+ffcd: 82 fd                        .dd2    DotCurr
+ffcf: 83 fd                        .dd2    DotStates
+ffd1: 08 08 00                     .bulk   $08,$08,$00
+                   ; 10 chalice; flash
+ffd4: b9 00                        .bulk   $b9,$00
+ffd6: ef fd                        .dd2    ChaliceCurr
+ffd8: f0 fd                        .dd2    ChaliceStates
+ffda: cb 06 00                     .bulk   $cb,$06,$00
+                   ; 11 magnet; black
+ffdd: b3 00                        .bulk   $b3,$00
+ffdf: 0e fe                        .dd2    MagnetCurr
+ffe1: 0f fe                        .dd2    MagnetStates
+ffe3: 00 06 00                     .bulk   $00,$06,$00
+                   ; 12 null; black
+ffe6: bc 00                        .bulk   $bc,$00
+ffe8: fd fd                        .dd2    NullCurr
+ffea: fe fd                        .dd2    NullStates
+ffec: 00 00 00                     .bulk   $00,$00,$00
+                   ; not used
+ffef: 00 00 00 00+                 .junk   11
+                   ; 6502 vectors
+fffa: 00 f0                        .dd2    $f000
+fffc: 00 f0                        .dd2    $f000
+fffe: 00 f0                        .dd2    $f000
+
+
+
+    
+
+    
+    
+        Symbol Table
+
+  START$f000
+
+
+    
+
+    
+        
+        HTML generated by 6502bench SourceGen v1.5.0-alpha1
+        on 2020/01/17 
+        Expression style: Common
+        
+    
+
+
