@@ -1,0 +1,11 @@
+wait 420
+key r
+wait 60
+wait 30
+hold down
+wait 90
+release
+wait 10
+mem 00/6186 20
+shot drawnplain.png
+echo done

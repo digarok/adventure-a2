@@ -20,6 +20,9 @@ DrawnSig          db    $ff,$ff,$ff,$ff, $ff,$ff,$ff,$ff
 * game plays exactly as it did.
 NSLOT             equ   8                       ; seven objects and the ball
 BALLSLOT          equ   NSLOT-1
+* Merlin evaluates strictly left to right, so BALLSLOT*4 has to be spelt
+* out - NewSig+BALLSLOT*4 would assemble as (NewSig+BALLSLOT)*4.
+BALLSIG           equ   NSLOT*4-4
 SlotSig           ds    2*NSLOT*4               ; sprite, x, y, colour
 SlotRect          ds    2*NSLOT*4               ; x, w, top line, lines
 NewSig            ds    NSLOT*4
@@ -283,27 +286,30 @@ SpreadChanges     ldx   #NSLOT-1
                   rts
 :pairs            lda   #2                      ; settle over the slots
                   sta   T5
+* only pairs with a changed item in them can matter, and there is usually
+* one of those against a handful of active slots - not every pair of eight
 :pass             lda   #0
-                  sta   T2                      ; first of the pair
-:i                lda   T2
-                  clc
-                  adc   #1
-                  sta   T4                      ; second of the pair
-:j                ldx   T2
+                  sta   T2                      ; index into ActiveList
+:i                ldx   T2
                   lda   ActiveList,x
-                  sta   T0
-                  ldx   T4
+                  tax
+                  lda   ChgFlags,x
+                  beq   :inext
+                  stx   T0
+                  lda   #0
+                  sta   T4                      ; index of the other one
+:j                ldx   T4
                   lda   ActiveList,x
+                  cmp   T0
+                  beq   :jnext
                   sta   T1
                   jsr   PairCheck
-                  inc   T4
+:jnext            inc   T4
                   lda   T4
                   cmp   ActiveN
                   bcc   :j
-                  inc   T2
+:inext            inc   T2
                   lda   T2
-                  clc
-                  adc   #1
                   cmp   ActiveN
                   bcc   :i
                   dec   T5
@@ -461,7 +467,7 @@ BuildDamageFor    lda   #0
                   sta   DamageRect+3
 :next             inc   RCnt
                   lda   RCnt
-                  cmp   #3
+                  cmp   #NSLOT
                   beq   :done
                   jmp   :item
 :done             rts
@@ -686,13 +692,13 @@ BuildNewSig       lda   #0
                   inx
                   jmp   :blank
 :ball             lda   #$fe                    ; the ball has no sprite id
-                  sta   NewSig+BALLSLOT*4
+                  sta   NewSig+BALLSIG
                   lda   BallX
-                  sta   NewSig+BALLSLOT*4+1
+                  sta   NewSig+BALLSIG+1
                   lda   BallY
-                  sta   NewSig+BALLSLOT*4+2
+                  sta   NewSig+BALLSIG+2
                   lda   WallClass               ; the ball takes the wall colour
-                  sta   NewSig+BALLSLOT*4+3
+                  sta   NewSig+BALLSIG+3
                   rts
 
 * ChgFlags[i] = nonzero if item i must be redrawn on this page

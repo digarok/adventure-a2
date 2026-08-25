@@ -1,0 +1,14 @@
+wait 420
+key r
+wait 60
+00/008a:0a 12 46
+00/00e2:0a 12 46
+00/00bf:0a 20 50
+wait 30
+hold up
+wait 20
+release
+wait 10
+mem 00/6186 20
+shot drawndark.png
+echo done
