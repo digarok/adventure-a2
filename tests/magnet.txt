@@ -1,0 +1,13 @@
+wait 420
+key r
+wait 60
+00/008a:04 37 40
+00/00e2:04 37 40
+00/00b3:04 50 60
+00/00bf:04 20 20
+wait 30
+mem 00/00bf 4
+wait 300
+mem 00/00bf 4
+shot 95-magnet.png
+echo done

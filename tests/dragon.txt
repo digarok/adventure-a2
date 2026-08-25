@@ -1,0 +1,15 @@
+wait 420
+key r
+wait 60
+00/008a:01 50 30
+00/00e2:01 50 30
+00/00a9:01 50 20 ff 00
+wait 90
+mem 00/008a 4
+mem 00/00a9 6
+shot 80-dragon.png
+wait 120
+mem 00/008a 4
+mem 00/00a9 6
+shot 81-dragon2.png
+echo done

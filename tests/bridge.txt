@@ -1,0 +1,15 @@
+wait 420
+key r
+wait 60
+00/008a:04 37 40
+00/00e2:04 37 40
+00/00bc:04 29 58
+wait 30
+mem 00/008a 4
+shot 90-bridge.png
+hold up
+wait 200
+release
+mem 00/008a 4
+shot 91-bridge2.png
+echo done

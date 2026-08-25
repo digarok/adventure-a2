@@ -1,0 +1,12 @@
+wait 420
+key r
+wait 60
+00/008a:01 50 30
+00/00e2:01 50 30
+00/00a9:01 50 20 ff 00
+00/00b6:01 50 28
+wait 120
+mem 00/00a9 6
+mem 00/00b6 4
+shot 82-sworddragon.png
+echo done
