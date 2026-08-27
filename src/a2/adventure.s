@@ -50,7 +50,7 @@ Main              cld
                   jsr   StartGame               ; returns on Esc
                   jmp   Quit
 
-WaitFrame         jmp   WaitVBL
+WaitFrame         jmp   FrameSync              ; wait out the frame, then flip
 
 Quit              sta   TXTSET
                   sta   PAGE1

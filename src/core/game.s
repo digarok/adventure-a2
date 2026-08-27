@@ -57,12 +57,13 @@ MainGameLoop      jsr   CheckGameStart
                   jsr   MoveCarriedObject
                   jsr   WaitFrame
                   jsr   SetupRoomPrint
-                  jsr   DrawFrame
+                  jsr   DrawFrameBegin           ; snapshot the scene and erase
                   jsr   PickupPutdown
                   ldy   #1                      ; phase 1: vertical only
                   jsr   BallMovement
                   jsr   Surround
                   jsr   WaitFrame
+                  jsr   DrawFrameEnd             ; ...and paint it a slice later
                   jsr   MoveBat
                   jsr   Portals
                   jsr   LatchCollisions          ; phase 1: latches only - the
@@ -73,8 +74,15 @@ MainGameLoop      jsr   CheckGameStart
                   jsr   BallMovement
                   jsr   MoveRedDragon
                   jsr   Mag
-                  jsr   DrawFrame
+                  jsr   LatchCollisions          ; phase 2: latches only
                   jmp   MainGameLoop
+* The 2600's kernel re-scanned the same object positions on every TV frame for
+* nothing, so a tick was displayed three times over.  Here a redisplay is a
+* real recomposite, and SetupRoomPrint snapshots once a tick, so the second
+* DrawFrame only ever painted the other page with the picture the first had
+* already worked out.  One compose a tick, alternating pages, puts the same
+* thing on screen; splitting it over the first two slices keeps it inside the
+* frame budget instead of overrunning one WaitFrame while the others idle.
 
 NonActiveLoop     jsr   WaitFrame
                   jsr   DrawFrame

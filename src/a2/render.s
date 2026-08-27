@@ -44,6 +44,7 @@ SlotBase          db    0                       ; page*NSLOT*4
 CurSlot           db    0
 FullRedraw        db    0
 DrawPage          db    0                       ; page being drawn (back page)
+FlipPending       db    0                       ; 0 none, 1 show page 1, 2 show page 2
 RoomBytes         ds    7*40                    ; template: one byte per PF pixel per row
 RoomOpen          ds    7*40                    ; $7f where the row is open, $00 where a wall is
 RoomLit           ds    7*40                    ; what a solid sprite shows through it
@@ -157,7 +158,15 @@ InitRender        ldx   #0
                   rts
 
 *-------------------------------------------------------------
-DrawFrame         jsr   LatchCollisions
+* A compose is split in two so it can use the whole tick rather than being
+* crammed between one pair of WaitFrames.  The erase half runs in the first
+* slice and the draw half in the second; in between only the back page is
+* half-built, and the snapshot taken at the top means the movement that runs
+* between them cannot change what is being painted.
+DrawFrame         jsr   DrawFrameBegin
+                  jmp   DrawFrameEnd
+
+DrawFrameBegin    jsr   LatchCollisions
                   ldx   DrawPage
                   lda   #0
                   sta   RPageHi
@@ -213,20 +222,39 @@ DrawFrame         jsr   LatchCollisions
                   sta   MeasureOnly
                   jsr   SpreadChanges
                   jsr   EraseChanged
-                  jsr   DrawItems
-:flip
-* flip
-                  lda   DrawPage
+                  rts
+
+DrawFrameEnd      jsr   DrawItems
+* The page just composed is shown at the next WaitFrame, inside VBL.  While
+* both pages held the same picture the flip could go anywhere; a tick apart,
+* flipping mid-frame would show the old tick above the raster and the new one
+* below it.
+:flip             lda   DrawPage
                   beq   :show0
-                  sta   PAGE2
+                  lda   #2                      ; page 2 is ready
+                  sta   FlipPending
                   lda   #0
                   sta   DrawPage
                   rts
-:show0            sta   PAGE1
-                  lda   #1
+:show0            lda   #1                      ; page 1 is ready
+                  sta   FlipPending
                   sta   DrawPage
                   rts
 
+*-------------------------------------------------------------
+* What WaitFrame runs: wait out the frame, then show whatever DrawFrame
+* finished while it was being displayed.
+FrameSync         jsr   WaitVBL
+                  ldx   FlipPending
+                  beq   :none
+                  lda   #0
+                  sta   FlipPending
+                  cpx   #1
+                  bne   :page2
+                  sta   PAGE1
+                  rts
+:page2            sta   PAGE2
+:none             rts
 
 *-------------------------------------------------------------
 * Walk the three items (object 1, object 2, ball), drawing - or, in the
