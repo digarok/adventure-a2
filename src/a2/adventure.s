@@ -44,6 +44,11 @@ BodyStart         =     *
 
                   org   $6000
 Main              cld
+                  lda   #0                      ; the port's own zero page: whatever
+                  ldx   #$4f                    ;  launched us may have left it dirty,
+:clearzp          sta   $10,x                   ;  and a relaunch finds the last run's
+                  dex                           ;  QuitFlag
+                  bpl   :clearzp
                   jsr   SetupVBL
                   jsr   TitleScreen
                   jsr   HGRInit

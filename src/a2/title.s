@@ -1,12 +1,25 @@
 *-------------------------------------------------------------
 * Title screen: 40-column text, shown once at startup.  Any key
-* goes on to the game; the key is left in the keyboard so it
-* also counts as the first game keystroke (R starts a game).
+* goes on to the game, and is handed to it as its first keystroke
+* (R starts a game).  While the key is down, the any-key-down flag
+* is checked: a machine or emulator that does not report it gets
+* the II+ scheme of a timed hold instead.
 *-------------------------------------------------------------
 HOME              equ   $fc58
 COUT              equ   $fded
+SETKBD            equ   $fe89
+SETVID            equ   $fe93
+INVFLG            equ   $32
+COL80OFF          equ   $c00c
+ALTCHAROFF        equ   $c00e
 
-TitleScreen       sta   TXTSET
+TitleScreen       jsr   SETVID                  ; plain 40-column ROM output,
+                  jsr   SETKBD                  ;  whatever launched us
+                  sta   COL80OFF
+                  sta   ALTCHAROFF
+                  lda   #$ff
+                  sta   INVFLG                  ; normal text
+                  sta   TXTSET
                   sta   PAGE1
                   jsr   HOME
                   lda   #<TitleText
@@ -23,7 +36,12 @@ TitleScreen       sta   TXTSET
                   bne   :print
 :wait             lda   KEY
                   bpl   :wait
-                  rts
+                  sta   PendingKey
+                  lda   STROBE                  ; clear it; bit 7 = still down
+                  bmi   :akd
+                  lda   #0
+                  sta   HasAKD
+:akd              rts
 
 TitleText         asc   8D,8D
                   asc   "         ADVENTURE FOR APPLE ][",8D,8D,8D

@@ -7,16 +7,22 @@ LastDir           db    $ff
 HoldTimer         db    0
 HasAKD            db    0                       ; IIe/IIc/IIgs: $C010 bit7 = any key down
 IsGS              db    0                       ; IIgs: slow to 1 MHz for the speaker
+PendingKey        db    0                       ; a key read early, for ReadInput
 
 ReadInput         lda   SWCHB
                   ora   #$03                    ; reset/select released
                   sta   SWCHB
                   lda   #$80
                   sta   INPT4
-                  lda   KEY
+                  lda   PendingKey              ; the title screen's key
+                  beq   :poll
+                  ldx   #0
+                  stx   PendingKey
+                  jmp   :key
+:poll             lda   KEY
                   bpl   :nonew
                   sta   STROBE
-                  and   #$7f
+:key              and   #$7f
                   cmp   #$08                    ; left
                   bne   :k1
                   lda   #$bf
