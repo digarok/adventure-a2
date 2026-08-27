@@ -6,6 +6,7 @@
 LastDir           db    $ff
 HoldTimer         db    0
 HasAKD            db    0                       ; IIe/IIc/IIgs: $C010 bit7 = any key down
+IsGS              db    0                       ; IIgs: slow to 1 MHz for the speaker
 
 ReadInput         lda   SWCHB
                   ora   #$03                    ; reset/select released

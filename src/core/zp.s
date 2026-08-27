@@ -72,6 +72,10 @@ CXM1FB            equ   $f5                     ; bit6 ball-missile1 (right thin
 CXP0FB            equ   $f6                     ; bit6 ball-player0
 CXP1FB            equ   $f7                     ; bit6 ball-player1
 CXPPMM            equ   $f8                     ; bit7 player0-player1
+AUDC0             equ   $50                     ; audio control / frequency / volume, as
+AUDF0             equ   $51                     ;  written by MakeSound, played by PlaySound
+AUDV0             equ   $52
+AUDLEN            equ   $2c                     ; note length in quarter ticks (4 = a tick)
 * ZP copies of ROM-resident object data (filled from ZPConsts at start)
 PortInfo1         equ   $60                     ; room,x,y of the 3 portcullises
 PortInfo2         equ   $63

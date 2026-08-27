@@ -1,11 +1,15 @@
 GSPLUS ?= /Users/dbrock/dev/gsplus/gsplus/src/build/GSplus.app/Contents/MacOS/GSplus
 
-.PHONY: all a2 gs run-a2 run-gs gfx clean
+.PHONY: all a2 gs run-a2 run-gs gfx snd clean
 
 all: a2 gs
 
 gfx:
 	python3 tools/gen_gfx.py
+
+snd:
+	python3 tools/tiasnd.py gen
+	python3 tools/tiasnd.py wav build/snd
 
 a2:
 	bash build_a2.sh

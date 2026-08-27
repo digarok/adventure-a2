@@ -69,6 +69,8 @@ QuitParm          dfb   4
                   put   render
                   put   input
                   put   gfxhgr
+                  put   sound
+                  put   sndpat
                   put   ../core/game
                   put   ../core/collide
                   put   ../core/data

@@ -1063,15 +1063,110 @@ Surround          lda   BallRoom
 :s4               rts
 
 * ---- MakeSound (fa23) ----------------------------------------
-* Sound is a later milestone; only the timing side effects are
-* kept: the note counter, and noise 0 (game over) driving the
-* playfield color.
+* One note a tick: the 2600 wrote AUDC0/AUDF0/AUDV0 and let the TIA
+* run.  Here the values go to the platform's PlaySound, which plays
+* the tick out on whatever it has.  Noise 0 (game over) also drives
+* the playfield colour.
 MakeSound         lda   NoiseCount
                   bne   :ms2
-                  rts
+                  rts                           ; volume off
 :ms2              dec   NoiseCount
+                  lda   #4
+                  sta   AUDLEN                  ; a note lasts the tick
                   lda   NoiseType
-                  bne   :done
+                  beq   NoiseGameOver
+                  cmp   #1
+                  beq   NoiseRoar
+                  cmp   #2
+                  beq   EatenNoise
+                  cmp   #3
+                  beq   DragDieNoise
+                  cmp   #4
+                  beq   NoiseDropObject
+                  cmp   #5
+                  beq   NoiseGetObject
+                  rts
+* noise 0: game over.  The 2600 ran the counter through every TIA
+* waveform - a 13-second noise sweep.  Here it drives the flash as it
+* did, and the first ticks play a short fanfare on the pure tone
+* instead; after that the game-over tick is silent.
+NoiseGameOver     lda   NoiseCount
+                  sta   PFOverride              ; COLUPF
+                  eor   #$ff                    ; ticks since the win: 1, 2, ...
+                  tax
+                  dex
+                  cpx   #WinLen
+                  bcs   :quiet
+                  lda   #$04                    ; square wave
+                  sta   AUDC0
+                  lda   WinNotes,x
+                  sta   AUDF0
+                  lda   WinVols,x
+                  sta   AUDV0
+                  jmp   PlaySound
+:quiet            rts
+* noise 1: roar
+NoiseRoar         lda   NoiseCount
+                  lsr
+                  lda   #$03
+                  bcs   SetVolume
+                  lda   #$08
+SetVolume         sta   AUDC0
                   lda   NoiseCount
-                  sta   PFOverride
-:done             rts
+                  sta   AUDV0
+                  lsr
+                  lsr
+                  clc
+                  adc   #$1c
+                  sta   AUDF0
+                  jmp   PlaySound
+* noise 2: man eaten
+EatenNoise        lda   #$06
+                  sta   AUDC0
+                  lda   NoiseCount
+                  eor   #$0f
+                  sta   AUDF0
+                  lda   NoiseCount
+                  lsr
+                  clc
+                  adc   #$08
+                  sta   AUDV0
+                  jmp   PlaySound
+* noise 3: dying dragon - played at double speed: two of the 2600's
+* notes a tick, each half a tick long
+DragDieNoise      lda   #2
+                  sta   AUDLEN
+                  jsr   :note
+                  lda   NoiseCount
+                  beq   :end
+                  dec   NoiseCount
+:note             lda   #$04
+                  sta   AUDC0
+                  lda   NoiseCount
+                  sta   AUDV0
+                  eor   #$1f
+                  sta   AUDF0
+                  jmp   PlaySound
+:end              rts
+* noise 4: dropping object
+NoiseDropObject   lda   NoiseCount
+                  eor   #$03
+NoiseDropObject2  sta   AUDF0
+                  lda   #$05
+                  sta   AUDV0
+                  lda   #$06
+                  sta   AUDC0
+                  jmp   PlaySound
+* noise 5: picking up an object
+NoiseGetObject    lda   NoiseCount
+                  jmp   NoiseDropObject2
+* AUDF for the square wave: pitch = 15700 / (F+1) Hz
+WC5               equ   29
+WE5               equ   23
+WG5               equ   19
+WC6               equ   14
+WinNotes          db    WC5,WC5,WE5,WE5,WG5,WG5,WC6,WC6,WC6,WC6
+                  db    WC6,WG5,WG5,WC6,WC6,WC6,WC6,WC6,WC6,WC6,WC6,WC6
+WinVols           db    15,12,15,12,15,12,15,13,11,9
+                  db    0,15,12,15,14,12,10,8,6,4,2,1
+WinLen            equ   22

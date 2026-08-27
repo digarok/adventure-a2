@@ -108,6 +108,7 @@ SetupVBL          lda   $FBB3
                   lda   #OP_BMI
                   sta   __waitVBLOp
 :foundIIgs        inc   HasAKD
+                  inc   IsGS
                   rts
 
 ShutDownVBL       rts                           ; SMC'd to NOP on IIc
