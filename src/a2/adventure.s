@@ -44,13 +44,13 @@ BodyStart         =     *
 
                   org   $6000
 Main              cld
+                  jsr   SetupVBL
+                  jsr   TitleScreen
                   lda   #0                      ; the port's own zero page: whatever
                   ldx   #$4f                    ;  launched us may have left it dirty,
 :clearzp          sta   $10,x                   ;  and a relaunch finds the last run's
-                  dex                           ;  QuitFlag
-                  bpl   :clearzp
-                  jsr   SetupVBL
-                  jsr   TitleScreen
+                  dex                           ;  QuitFlag.  After the title: the ROM
+                  bpl   :clearzp                ;  text window lives in $20-$29
                   jsr   HGRInit
                   jsr   InitRender
                   jsr   StartGame               ; returns on Esc

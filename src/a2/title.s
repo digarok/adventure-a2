@@ -10,6 +10,10 @@ COUT              equ   $fded
 SETKBD            equ   $fe89
 SETVID            equ   $fe93
 INVFLG            equ   $32
+WNDLFT            equ   $20
+WNDWDTH           equ   $21
+WNDTOP            equ   $22
+WNDBTM            equ   $23
 COL80OFF          equ   $c00c
 ALTCHAROFF        equ   $c00e
 
@@ -17,6 +21,13 @@ TitleScreen       jsr   SETVID                  ; plain 40-column ROM output,
                   jsr   SETKBD                  ;  whatever launched us
                   sta   COL80OFF
                   sta   ALTCHAROFF
+                  lda   #0                      ; full-screen text window
+                  sta   WNDLFT
+                  sta   WNDTOP
+                  lda   #40
+                  sta   WNDWDTH
+                  lda   #24
+                  sta   WNDBTM
                   lda   #$ff
                   sta   INVFLG                  ; normal text
                   sta   TXTSET
