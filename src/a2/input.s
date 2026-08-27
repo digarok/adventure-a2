@@ -1,7 +1,7 @@
 *-------------------------------------------------------------
 * Keyboard -> emulated 2600 joystick / console switches
 *   arrows move (direction held while any key is down),
-*   space = button, R reset, S select, 1/2 difficulty, Esc quit
+*   space = button, R reset, S select, 1/2 difficulty, Q/Esc quit
 *-------------------------------------------------------------
 LastDir           db    $ff
 HoldTimer         db    0
@@ -67,7 +67,10 @@ ReadInput         lda   SWCHB
                   sta   SWCHB
                   jmp   :nonew
 :k9               cmp   #$1b                    ; Esc
+                  beq   :quit
+                  cmp   #'q'
                   bne   :nonew
+:quit
                   lda   #1
                   sta   QuitFlag
 :nonew            lda   #$ff

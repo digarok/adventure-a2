@@ -45,6 +45,7 @@ BodyStart         =     *
                   org   $6000
 Main              cld
                   jsr   SetupVBL
+                  jsr   TitleScreen
                   jsr   HGRInit
                   jsr   InitRender
                   jsr   StartGame               ; returns on Esc
@@ -66,6 +67,7 @@ QuitParm          dfb   4
                   da    $0000
 
                   put   hgr
+                  put   title
                   put   render
                   put   input
                   put   gfxhgr
