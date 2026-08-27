@@ -1,6 +1,8 @@
 ADVENTURE A2 - a port of Atari 2600 Adventure (Warren Robinett, 1979)
 to the Apple II, from the published 6502 disassembly.
 
+![the yellow castle](screenshots/start.png)
+
 The game logic is the original 6502 code, ported line for line.  Only
 three things are replaced: the TIA display kernel (a HGR renderer), the
 TIA collision latches (computed in software from the same sprite and
