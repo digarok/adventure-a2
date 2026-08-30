@@ -107,7 +107,8 @@ SetupVBL          lda   $FBB3
                   sta   __waitRasterOp
                   lda   #OP_BMI
                   sta   __waitVBLOp
-:foundIIgs        inc   HasAKD
+                  rts                           ; else falls into IIgs below,
+:foundIIgs        inc   HasAKD                  ;  wrongly setting IsGS too
                   inc   IsGS
                   rts
 
