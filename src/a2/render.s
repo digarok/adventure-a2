@@ -1332,16 +1332,141 @@ DrawRoom          ldx   DrawPage
                   clc
                   adc   RPageHi
                   sta   RP+1
-                  ldy   #39
-:copy             lda   (RTmpl),y
+* the 40-byte width is a compile-time constant, so this is unrolled flat -
+* no dey/bpl per byte - which is worth it here because DrawRoom only runs
+* on a room transition, not every frame, so the code size is free money
+                  ldy   #0
+                  lda   (RTmpl),y
                   sta   (RP),y
-                  dey
-                  bpl   :copy
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
+                  iny
+                  lda   (RTmpl),y
+                  sta   (RP),y
                   inc   RLine
                   lda   RLine
                   cmp   #192
-                  bne   :line
-                  rts
+                  beq   :alldone               ; unrolled body is >127 bytes,
+                  jmp   :line                  ;  out of bne's branch range
+:alldone          rts
 
 * A = line -> A = playfield row 0-6
 RowOfLine         cmp   #16
