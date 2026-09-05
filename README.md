@@ -43,9 +43,3 @@ generates the song data and can render the tune to WAV.
 Building and running (from the repo):
   make a2          assemble and build build/adventure.po (140K, bootable)
   make run-a2      build, then launch it in GSplus
-
-The disk goes in slot 7, which the IIgs boot scanner tries first, so it
-boots straight in without waiting on the slot 7 -> 5 -> 6 scan.  GSplus
-rewrites its config file on exit, so tools/run.sh copies the config into
-build/run-a2/ and runs from there rather than letting it overwrite the
-checked-in one.
