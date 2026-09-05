@@ -304,10 +304,11 @@ ObjVsObj          ldy   DescA+2
                   lda   T4
                   cmp   XHi
                   bcc   :cclk
+                  lda   CHi                     ; test before the dec: CLo can be 0
+                  cmp   CLo                     ;  (ObjBottom clamps there), and a
+                  beq   :none                   ;  wrapped CHi is never below it
                   dec   CHi
-                  lda   CHi
-                  cmp   CLo
-                  bcs   :crow
+                  bcs   :crow                   ; carry still set from the cmp
 :none             lda   #0
 :hit              rts
 
