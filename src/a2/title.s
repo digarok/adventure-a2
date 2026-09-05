@@ -63,6 +63,7 @@ TitleText         asc   8D,8D
                   asc   "   R        RESET (START A GAME)",8D
                   asc   "   S        SELECT GAME 1/2/3",8D
                   asc   "            (IN THE NUMBER ROOM)",8D
+                  asc   "   P        POWER CYCLE (FULL RESET)",8D
                   asc   "   1 / 2    LEFT / RIGHT DIFFICULTY",8D
                   asc   "   Q / ESC  QUIT TO PRODOS",8D,8D,8D
                   asc   "          PRESS ANY KEY TO PLAY"

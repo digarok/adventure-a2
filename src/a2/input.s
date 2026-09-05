@@ -1,7 +1,8 @@
 *-------------------------------------------------------------
 * Keyboard -> emulated 2600 joystick / console switches
 *   arrows move (direction held while any key is down),
-*   space = button, R reset, S select, 1/2 difficulty, Q/Esc quit
+*   space = button, R reset, S select, 1/2 difficulty, P full
+*   reset (power cycle), Q/Esc quit
 *-------------------------------------------------------------
 LastDir           db    $ff
 HoldTimer         db    0
@@ -20,8 +21,9 @@ ReadInput         lda   SWCHB
                   stx   PendingKey
                   jmp   :key
 :poll             lda   KEY
-                  bpl   :nonew
-                  sta   STROBE
+                  bmi   :havekey                ; bpl :nonew is out of range
+                  jmp   :nonew                  ;  now that :nonew moved further
+:havekey          sta   STROBE
 :key              and   #$7f
                   cmp   #$08                    ; left
                   bne   :k1
@@ -67,10 +69,15 @@ ReadInput         lda   SWCHB
                   sta   SWCHB
                   jmp   :nonew
 :k8               cmp   #'2'
-                  bne   :k9
+                  bne   :k8p
                   lda   SWCHB
                   eor   #$80
                   sta   SWCHB
+                  jmp   :nonew
+:k8p              cmp   #'p'                    ; power cycle: full reset, not
+                  bne   :k9                     ;  just a respawn like R
+                  lda   #1
+                  sta   FullResetFlag
                   jmp   :nonew
 :k9               cmp   #$1b                    ; Esc
                   beq   :quit

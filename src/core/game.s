@@ -40,8 +40,10 @@ MainGameLoop      jsr   CheckGameStart
                   jsr   MakeSound
                   jsr   CheckInput
                   lda   QuitFlag
+                  bne   :out
+                  lda   FullResetFlag
                   beq   :run
-                  rts                           ; back to platform -> quit
+:out              rts                           ; back to platform -> quit or full reset
 :run              lda   GameInactive
                   bne   NonActiveLoop
                   lda   Chalice                 ; chalice room

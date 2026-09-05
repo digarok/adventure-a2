@@ -114,7 +114,23 @@ ColorClass        cmp   #$10
                   rts
 
 *-------------------------------------------------------------
-InitRender        ldx   #0
+* Also clears what the last session left in the per-page render caches -
+* the loader only zeroes them the first time; a full reset calls this
+* again mid-session, and stale entries here would misdraw the new game.
+InitRender        ldx   #NSLOT*4*2-4            ; both pages: nothing drawn yet
+                  lda   #0
+:clrslot          sta   SlotRect+3,x
+                  dex
+                  dex
+                  dex
+                  dex
+                  bpl   :clrslot
+                  ldx   #7                      ; force a full room + item
+                  lda   #$ff                    ;  redraw on both pages
+:clrsig           sta   DrawnSig,x
+                  dex
+                  bpl   :clrsig
+                  ldx   #0
 :l1               txa
                   jsr   RowOfLine
                   jsr   TemplateRow

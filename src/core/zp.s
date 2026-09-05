@@ -104,6 +104,7 @@ CLo               equ   $24
 CHi               equ   $25
 SceneTick         equ   $2b                     ; set by SetupRoomPrint, cleared by DrawFrame
 QuitFlag          equ   $26                     ; set by ReadInput on Esc
+FullResetFlag     equ   $2d                     ; set by ReadInput: full reset, like a power cycle
 RoomColor         equ   $27                     ; 2600 color of the playfield this frame
 RoomCtrl          equ   $28                     ; b7 left thin wall, b6 right thin wall, b2 PF priority
 Obj1Color         equ   $29

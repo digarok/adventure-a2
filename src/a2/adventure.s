@@ -45,7 +45,7 @@ BodyStart         =     *
                   org   $6000
 Main              cld
                   jsr   SetupVBL
-                  jsr   TitleScreen
+:boot             jsr   TitleScreen
                   lda   #0                      ; the port's own zero page: whatever
                   ldx   #$4f                    ;  launched us may have left it dirty,
 :clearzp          sta   $10,x                   ;  and a relaunch finds the last run's
@@ -53,8 +53,10 @@ Main              cld
                   bpl   :clearzp                ;  text window lives in $20-$29
                   jsr   HGRInit
                   jsr   InitRender
-                  jsr   StartGame               ; returns on Esc
-                  jmp   Quit
+                  jsr   StartGame               ; returns on Esc, or a full reset
+                  lda   QuitFlag                ;  (P): the only other way out
+                  beq   :boot                   ; full reset: back to the title,
+                  jmp   Quit                    ;  same as a cold power-on
 
 WaitFrame         jmp   FrameSync              ; wait out the frame, then flip
 
