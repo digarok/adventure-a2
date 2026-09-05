@@ -13,8 +13,8 @@
 * as sin(pi*duty), a smooth fade.  Low runs leave the speaker alone.
 *
 * PlaySound blocks for the whole tick, so the game runs at half speed
-* while a sound plays - the sounds are short bursts, apart from the
-* game-over one, and the only thing happening during that is a flash.
+* while a sound plays - the sounds are short bursts.  The win tune is
+* not played this way: wintune.s plays it through in one go.
 *
 * Delays count 5-cycle loop iterations ("units"); one audio clock is
 * 6.5 units.  A run of r pattern clocks at divider F is U = 13r(F+1)/2

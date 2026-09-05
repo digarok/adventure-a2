@@ -73,11 +73,8 @@ class Channel:
 # ---- Adventure's MakeSound (fa23), one tick: returns (audc, audf, audv) or None (silence)
 def make_sound(ntype, count):
     """count is the value *after* the decrement, as the ROM uses it"""
-    if ntype == 0:                       # game over: the port's fanfare
-        i = (count ^ 0xff) - 1
-        if i < len(WIN_NOTES):
-            return 4, WIN_NOTES[i], WIN_VOLS[i]
-        return 4, 0, 0
+    if ntype == 0:                       # game over: silent here (the win
+        return 4, 0, 0                   #  tune is tools/wintune.py)
     if ntype == -1:                      # game over as the 2600 did it
         return count & 15, (count >> 3) & 31, (count >> 1) & 15
     if ntype == 1:                       # roar
@@ -93,12 +90,7 @@ def make_sound(ntype, count):
         return 6, count & 31, 5
     return None
 
-WC5, WE5, WG5, WC6 = 29, 23, 19, 14
-WIN_NOTES = [WC5,WC5,WE5,WE5,WG5,WG5,WC6,WC6,WC6,WC6, WC6,WG5,WG5,WC6,WC6,WC6,WC6,WC6,WC6,WC6,WC6,WC6]
-WIN_VOLS  = [15,12,15,12,15,12,15,13,11,9, 0,15,12,15,14,12,10,8,6,4,2,1]
-
 SOUNDS = {                     # name: (type, initial NoiseCount)
-    'gameover': (0, 0xff),
     'gameover2600': (-1, 0xff),
     'roar':     (1, 0x10),
     'eaten':    (2, 0x10),

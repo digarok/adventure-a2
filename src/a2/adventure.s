@@ -90,6 +90,8 @@ QuitParm          dfb   4
                   put   gfxhgr
                   put   sound
                   put   sndpat
+                  put   wintune
+                  put   winsong
                   put   ../core/game
                   put   ../core/collide
                   put   ../core/data

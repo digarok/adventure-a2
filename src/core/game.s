@@ -1090,22 +1090,14 @@ MakeSound         lda   NoiseCount
                   rts
 * noise 0: game over.  The 2600 ran the counter through every TIA
 * waveform - a 13-second noise sweep.  Here it drives the flash as it
-* did, and the first ticks play a short fanfare on the pure tone
-* instead; after that the game-over tick is silent.
+* did, and the first tick hands over to the platform's PlayWinTune,
+* which plays the whole win tune before returning; the ticks after
+* that are silent.
 NoiseGameOver     lda   NoiseCount
                   sta   PFOverride              ; COLUPF
-                  eor   #$ff                    ; ticks since the win: 1, 2, ...
-                  tax
-                  dex
-                  cpx   #WinLen
-                  bcs   :quiet
-                  lda   #$04                    ; square wave
-                  sta   AUDC0
-                  lda   WinNotes,x
-                  sta   AUDF0
-                  lda   WinVols,x
-                  sta   AUDV0
-                  jmp   PlaySound
+                  cmp   #$fe                    ; the first tick since the win
+                  bne   :quiet
+                  jmp   PlayWinTune
 :quiet            rts
 * noise 1: roar
 NoiseRoar         lda   NoiseCount
@@ -1162,13 +1154,3 @@ NoiseDropObject2  sta   AUDF0
 * noise 5: picking up an object
 NoiseGetObject    lda   NoiseCount
                   jmp   NoiseDropObject2
-* AUDF for the square wave: pitch = 15700 / (F+1) Hz
-WC5               equ   29
-WE5               equ   23
-WG5               equ   19
-WC6               equ   14
-WinNotes          db    WC5,WC5,WE5,WE5,WG5,WG5,WC6,WC6,WC6,WC6
-                  db    WC6,WG5,WG5,WC6,WC6,WC6,WC6,WC6,WC6,WC6,WC6,WC6
-WinVols           db    15,12,15,12,15,12,15,13,11,9
-                  db    0,15,12,15,14,12,10,8,6,4,2,1
-WinLen            equ   22

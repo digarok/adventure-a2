@@ -29,6 +29,11 @@ The speaker has to be driven by the CPU, so the game runs at about
 half speed while a sound plays.  On a IIgs the driver drops to 1 MHz
 for the duration.
 
+Winning plays a tune of its own (src/a2/wintune.s): two square-wave
+voices mixed on the speaker, played straight through before the
+game-over flash carries on.  The notes live in tools/wintune.py, which
+generates the song data and can render the tune to WAV.
+
 Building and running (from the repo):
   make a2          assemble and build build/adventure.po (140K, bootable)
   make run-a2      build, then launch it in GSplus

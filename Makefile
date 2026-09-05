@@ -10,6 +10,8 @@ gfx:
 snd:
 	python3 tools/tiasnd.py gen
 	python3 tools/tiasnd.py wav build/snd
+	python3 tools/wintune.py gen
+	python3 tools/wintune.py wav build/snd/win.wav
 
 a2:
 	bash build_a2.sh
