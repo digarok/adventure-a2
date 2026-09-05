@@ -21,22 +21,32 @@ HIRES             equ   $c057
 
                   use   ../core/zp
 
-Stub              lda   #<BodyStart
+* The file runs from $2000 past $6000, so the source and destination
+* overlap: copied bottom-up, the pages from $6000 on would be read after
+* they had been overwritten, and the end of the body (ZPConsts, the 2600
+* sprite rows) would come out as a copy of Main.  So copy top-down.
+Stub              ldx   #>BodyEnd-Main+$ff      ; pages to copy
+                  dex
+                  txa
+                  clc
+                  adc   #>BodyStart
+                  sta   $01                     ; last source page
+                  txa
+                  clc
+                  adc   #>Main
+                  sta   $03                     ; last destination page
+                  inx
+                  lda   #<BodyStart
                   sta   $00
-                  lda   #>BodyStart
-                  sta   $01
                   lda   #<Main
                   sta   $02
-                  lda   #>Main
-                  sta   $03
-                  ldx   #>BodyEnd-Main+$ff      ; pages to copy
                   ldy   #0
 :copy             lda   ($00),y
                   sta   ($02),y
                   iny
                   bne   :copy
-                  inc   $01
-                  inc   $03
+                  dec   $01
+                  dec   $03
                   dex
                   bne   :copy
                   jmp   Main
