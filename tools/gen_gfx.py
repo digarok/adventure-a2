@@ -121,7 +121,7 @@ ZERO_STATE = 0x6f      # replaces every ROM-resident xxxCurr byte (always 0)
 out = [HDR]
 # room graphics: 21 bytes per room, read sequentially like the 2600 kernel does
 room_labels = []
-for room in range(30):
+for room in range(31):                # 00-1e; 1e is the secret room
     a = L['RoomDataTable'] + room * 9
     ptr = R(a, 2); ptr = ptr[0] | ptr[1] << 8
     name = [k for k, v in L.items() if v == ptr and not k.startswith('@')][0]

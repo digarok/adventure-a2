@@ -63,6 +63,8 @@ RoomDataTable
                   hex   660a211d078c08
                   da    TopEntryRoom
                   hex   360a218f011003
+                  da    BelowYellowCastle
+                  hex   660a2106010603
 RoomDiffs          hex   100f0f0511111d0a0a1c16161b0c0c03
                    hex   0c0c
 
