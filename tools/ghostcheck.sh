@@ -28,7 +28,7 @@ for scene in "$@"; do
       # the two runs would no longer be comparable
       sed 's|^FORCEREDRAW$|00/002f:00|' "$SRC" > /tmp/ghost-$$.txt
     fi
-    ./tools/harness.sh a2 "$SECS" -script /tmp/ghost-$$.txt > /tmp/ghost-$$.log 2>&1 || true
+    ./tools/harness.sh "$SECS" -script /tmp/ghost-$$.txt > /tmp/ghost-$$.log 2>&1 || true
     if grep -q "BRK at" /tmp/ghost-$$.log; then
       echo "$scene: CRASHED ($(grep -m1 'BRK at' /tmp/ghost-$$.log))"; fail=1; continue 2
     fi
